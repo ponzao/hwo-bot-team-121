@@ -58,15 +58,18 @@
 
 ; paddle target calculation
 
+; vertical increment for 1/10 second
 (def paddle-speed (atom nil))
 
-; FIXME
+; XXX make sure this works correctly
 (defn calculate-paddle-speed []
   "initializes paddle-speed after first two moves"
   (when (and (nil? @paddle-speed)
              (= (count @game-data) 2))
-    (let [[one two & _] @game-data]
-      (reset! paddle-speed (- (-> one :left :y) (-> two :left :y))))))
+    (let [[one two & _] @game-data
+           distance    (- (-> one :left :y) (-> two :left :y))
+           time-in-ms  (- (-> one :time) (-> two :time))]
+      (reset! paddle-speed (/ distance (/ time-in-ms 100))))))
 
 ;; Nice to have?
 (defn opponent-paddle-direction
@@ -109,8 +112,8 @@
         diff            (- paddle-target paddle-position)
         speed           @paddle-speed]
     (if (< (Math/abs diff) speed)
-      (move-paddle conn (/ diff speed))
-      (move-paddle conn (if (< diff 0) -1 1)))))
+      (move-paddle! conn (/ diff speed))
+      (move-paddle! conn (if (< diff 0) -1 1)))))
                   
 (defn time-diff []
   (let [current (System/currentTimeMillis)
