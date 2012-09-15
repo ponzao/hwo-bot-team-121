@@ -1,0 +1,13 @@
+lib
+.externalToolBuilders
+.lein-*
+.cache
+.scala_dependencies
+.classpath
+.project
+.settings
+etc/__MACOSX
+target
+bin
+classes
+*.log
