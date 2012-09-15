@@ -6,10 +6,18 @@
            [java.io PrintWriter InputStreamReader BufferedReader])
   (:gen-class :main true))
 
+; ball always between x  (+ paddle-width ball-radius), (- max-width ball-radius) 
+;                     y  ball-radius, (- max-height ball-radius)
+
+; paddle always between y (- max-height paddle-height)
+
 ; contains data entries of the ongoing game
 (def game-data (atom ()))
 
 (def ball-events (atom ()))
+
+; temporary
+(def paddle-positions (atom ()))
 
 (def last-sent-timestamp (atom (System/currentTimeMillis)))
 
@@ -34,42 +42,55 @@
 
 (defn calculate-x-at-y
   [angle [x1 y1] y2]
-  (+ (/ (- y2 y1) angle) x1))
+  (if-not (zero? angle)
+    (+ (/ (- y2 y1) angle) x1)
+    x1))
 
 (defn out-of-bounds
-  [height y]
-  (cond (neg? y) :under 
-        (< height y) :over))
+  ([min max y]
+    (cond (< y min) :under
+          (> y max) :over))
+  ([max y] 
+    (cond (neg? y) :under 
+          (< max y) :over)))
 
 (defn ball-target-calculator
-  [width height paddle-height paddle-width ball-radius]
+  [max-width max-height paddle-height paddle-width ball-radius] 
   (fn [p1 p2] ; [[x1 y1] [x2 y2]]
-    (loop [angle (calculate-angle p1 p2)
+    (loop [angle (calculate-angle p1 p2)           
            point p2]
-      (let [y-at-zero (calculate-y-at-x angle point 0)
-            out (out-of-bounds height y-at-zero)]
+      (let [y-at-paddle (calculate-y-at-x angle point paddle-width)
+            height (- max-height (* 2 ball-radius))
+            out (out-of-bounds height y-at-paddle)]
         (if out
           ; TODO: Simplify by returning points from calculate-...
           (recur (* -1 angle) [(calculate-x-at-y angle point (if (= out :over)
                                                                height
                                                                0))
                                (if (= out :over) height 0)])
-          [0 y-at-zero])))))
+          [paddle-width y-at-paddle])))))
 
 ; paddle target calculation
 
 ; vertical increment for 1/10 second
 (def paddle-speed (atom nil))
 
-; XXX make sure this works correctly
+; FIXME this is not reliable
 (defn calculate-paddle-speed []
   "initializes paddle-speed after first two moves"
   (when (and (nil? @paddle-speed)
              (= (count @game-data) 2))
     (let [[one two & _] @game-data
            distance    (- (-> one :left :y) (-> two :left :y))
-           time-in-ms  (- (-> one :time) (-> two :time))]
-      (reset! paddle-speed (/ distance (/ time-in-ms 100))))))
+           time-in-ms  (- (-> one :time) (-> two :time))
+           speed       (/ distance (/ time-in-ms 100))]
+      ; XXX for some reason calculated speed times two works better
+      (reset! paddle-speed (* 2.0 speed)))))
+
+; workaround
+(defn init-paddle-speed! [data]
+  (when-not @paddle-speed) 
+    (reset! paddle-speed (* 0.375 (-> data :conf :paddleHeight))))
 
 ;; Nice to have?
 (defn opponent-paddle-direction
@@ -83,12 +104,17 @@
   (let [ball-target-calc (ball-target-calculator maxWidth maxHeight 
                                                  paddleHeight paddleWidth
                                                  ballRadius)
-        center-position  (- (/ maxHeight 2) (/ paddleHeight 2))]
+        center-position  (- (/ maxHeight 2) (/ paddleHeight 2))
+        max-position     (- maxHeight paddleHeight)]
     (fn [p1 p2] ; [[x1 y1] [x2 y2]]      
       (let [[_ ball-target] (ball-target-calc p1 p2)
-            ball-dir        (ball-direction p1 p2)]
+            ball-dir        (ball-direction p1 p2)
+            target          (+ (- ball-target (/ paddleHeight 2)) ballRadius)]
         (case ball-dir
-          :left  (- ball-target (/ paddleHeight 2))
+          :left (case (out-of-bounds max-position target)
+                  :over  max-position
+                  :under 0
+                  nil    target)
           :right center-position)))))
 
 (def paddle-destination-calc (atom nil))
@@ -102,8 +128,8 @@
   [conn direction]
   (write conn {:msgType "changeDir" :data direction}))
 
-(defn near? [x1 x2]
-  (< (Math/abs (- x1 x2)) 10))
+;(defn near? [x1 x2]
+;  (< (Math/abs (- x1 x2)) 10))
 
 (defn calculate-and-make-move! [conn data]
   (let [[event1 event2] (take 2 @ball-events)
@@ -120,20 +146,18 @@
         old @last-sent-timestamp]
     (> (- current old) 100)))
 
-; XXX
 (defn init-paddle-dest-calc! [data]
   (when (nil? @paddle-destination-calc) 
     (reset! paddle-destination-calc (paddle-destination-calculator data))))
 
 (defn make-move [conn {{{ball-x :x ball-y :y} :pos} :ball
-                       {paddle-y :y} :left :as data}]    
+                       {paddle-y :y} :left :as data}]
   (swap! ball-events conj [ball-x ball-y])  
+  (swap! paddle-positions conj paddle-y) ; XXX temporary 
+  (init-paddle-speed! data)
   (init-paddle-dest-calc! data)    
   (when (time-diff) ; only react max 10 times / sec
     (swap! game-data conj data)    
-    (calculate-paddle-speed)    
-    (if-not @paddle-speed
-      (move-paddle! conn 1.0))
     (when (and (first @ball-events) (second @ball-events)) ; react after 2 ball events
       (reset! last-sent-timestamp (System/currentTimeMillis))
       (calculate-and-make-move! conn data))))
