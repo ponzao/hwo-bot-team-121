@@ -111,7 +111,7 @@
         paddle-target   (@paddle-destination-calc event1 event2)
         diff            (- paddle-target paddle-position)
         speed           @paddle-speed]
-    (if (< (Math/abs diff) speed)
+    (if (<= (Math/abs diff) speed)
       (move-paddle! conn (/ diff speed))
       (move-paddle! conn (if (< diff 0) -1 1)))))
                   
