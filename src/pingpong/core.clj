@@ -64,10 +64,9 @@
 (defn calculate-paddle-speed []
   "initializes paddle-speed after first two moves"
   (when (and (nil? @paddle-speed)
-             (= (count @game-data) 3)))
-    (let [one (first @game-data)
-          two (second @game-data)]
-      (reset! paddle-speed (- (-> two :left :y) (-> one :left :y)))))
+             (= (count @game-data) 2))
+    (let [[one two & _] @game-data]
+      (reset! paddle-speed (- (-> one :left :y) (-> two :left :y))))))
 
 ;; Nice to have?
 (defn opponent-paddle-direction
@@ -107,8 +106,11 @@
   (let [[event1 event2] (take 2 @ball-events)
         paddle-position (-> data :left :y)
         paddle-target   (@paddle-destination-calc event1 event2)
-        paddle-dir      (if (< paddle-position paddle-target) 1 -1)]
-    (move-paddle! conn paddle-dir))) 
+        diff            (- paddle-target paddle-position)
+        speed           @paddle-speed]
+    (if (< (Math/abs diff) speed)
+      (move-paddle conn (/ diff speed))
+      (move-paddle conn (if (< diff 0) -1 1)))))
                   
 (defn time-diff []
   (let [current (System/currentTimeMillis)
@@ -123,10 +125,12 @@
 (defn make-move [conn {{{ball-x :x ball-y :y} :pos} :ball
                        {paddle-y :y} :left :as data}]    
   (swap! ball-events conj [ball-x ball-y])  
-  (init-paddle-dest-calc! data)  
+  (init-paddle-dest-calc! data)    
   (when (time-diff) ; only react max 10 times / sec
-    (swap! game-data conj data)
-    ;(calculate-paddle-speed)    
+    (swap! game-data conj data)    
+    (calculate-paddle-speed)    
+    (if-not @paddle-speed
+      (move-paddle! conn 1.0))
     (when (and (first @ball-events) (second @ball-events)) ; react after 2 ball events
       (reset! last-sent-timestamp (System/currentTimeMillis))
       (calculate-and-make-move! conn data))))
