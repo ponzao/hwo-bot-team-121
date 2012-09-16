@@ -41,4 +41,6 @@
     (calc [40 45] [50 50])   => 15/2  ; down    
     (calc [40 45] [50 40])   => 65/2  ; up
     (calc [40 40] [50 40])   => 15))  ; straight
+
+; TODO tests for strategies
        

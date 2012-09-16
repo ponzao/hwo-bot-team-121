@@ -150,7 +150,7 @@
       
 ; TODO instead of two events the strategy should get the final movement vector of the ball
 
-; hits ball with paddle center
+; hits ball at calculated position (paddle center)
 (defn basic-strategy-move [conf position target event1 event2]
   (let [diff  (- target position)
         speed @paddle-speed]
