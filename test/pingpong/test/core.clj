@@ -19,18 +19,15 @@
   (ball-direction [1 0] [2 0]) => :left
   (ball-direction [2 0] [1 0]) => :right)
 
-;450 460 470 
-;30  20  10  
-
 (facts "ball target calculation"
   (let [calc (ball-target-calculator 640 480 50 10 5)]
-    (calc [20 10] [30 20])   => [10 0]    ; top corner    
-    (calc [20 460] [30 450]) => [10 470]  ; bottom corner
-    (calc [80 20] [90 40])   => [10 120]  ; top reflection
-    (calc [80 470] [90 460]) => [10 400]  ; bottom reflection
-    (calc [40 45] [50 50])   => [10 30]   ; down    
-    (calc [40 45] [50 40])   => [10 60]   ; up
-    (calc [40 40] [50 40])   => [10 40])) ; straight    
+    (calc [20 10] [30 20])   => [15 5]    ; top corner    
+    (calc [20 460] [30 450]) => [15 465]  ; bottom corner
+    (calc [80 20] [90 40])   => [15 120]  ; top reflection
+    (calc [80 470] [90 460]) => [15 415]  ; bottom reflection
+    (calc [40 45] [50 50])   => [15 65/2] ; down    
+    (calc [40 45] [50 40])   => [15 115/2]; up
+    (calc [40 40] [50 40])   => [15 40])) ; straight    
 
 (facts "paddle target calculation"
   (let [calc (paddle-destination-calculator example-data)
@@ -39,9 +36,9 @@
         center-position (- (/ max-height 2) (/ paddle-height 2))]
     (calc [20 10] [30 20])   => 0     ; top corner    
     (calc [20 460] [30 450]) => 430   ; bottom corner
-    (calc [80 20] [90 40])   => 100   ; top reflection
-    (calc [80 470] [90 460]) => 380   ; bottom reflection
-    (calc [40 45] [50 50])   => 10    ; down    
-    (calc [40 45] [50 40])   => 40    ; up
-    (calc [40 40] [50 40])   => 20))  ; straight
+    (calc [80 20] [90 40])   => 95    ; top reflection
+    (calc [80 470] [90 460]) => 390   ; bottom reflection
+    (calc [40 45] [50 50])   => 15/2  ; down    
+    (calc [40 45] [50 40])   => 65/2  ; up
+    (calc [40 40] [50 40])   => 15))  ; straight
        
