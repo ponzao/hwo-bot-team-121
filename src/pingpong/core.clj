@@ -119,7 +119,7 @@
       (let [[angle _ ball-target] (ball-target-calc p1 p2)
             ball-dir        (ball-direction p1 p2)
             target          (case ball-dir
-                              :left (constrain max-position (- ball-target (/ paddleHeight 2)))
+                              :left (- ball-target (/ paddleHeight 2))
                               :right center-position)]
             [angle ball-target target]))))
 
@@ -149,16 +149,18 @@
     [event1 event2]))
       
 ; hits ball at calculated position (paddle center)
-(defn basic-strategy-move [conf position angle target]
-  (let [diff  (- target position)
-        speed @paddle-speed]
+(defn basic-strategy-move [{:keys [maxHeight paddleHeight]} position angle target]
+  (let [max-position (- maxHeight paddleHeight)
+        norm-target  (constrain max-position target)    
+        diff         (- norm-target position)
+        speed        @paddle-speed]
     (if (<= (Math/abs diff) speed)
       (/ diff speed)
       (if (< diff 0) -1 1))))
 
 ; hits ball with paddle corner of ball direction
 (defn corner-strategy-move [conf position angle target]
-  (let [{:keys [maxWidth maxHeight paddleHeight paddleWidth ballRadius]} conf
+  (let [{:keys [maxHeight paddleHeight ballRadius]} conf
         offset        (- (/ paddleHeight 2) ballRadius)
         max-position  (- maxHeight paddleHeight)
         corner        (if (neg? angle)
