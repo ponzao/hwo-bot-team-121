@@ -226,11 +226,13 @@
        :data    (:data msg)})
     (catch Throwable e {:msgType 'error :data (. e getMessage)})))
 
+(defn stop [] (dosync (swap! conn assoc :exit true))) 
+                          
 (defn conn-handler []
   (while (nil? (:exit @conn))
     (let [msg (.readLine (:in @conn))]
       (cond
-       (nil? msg) (dosync (swap! conn assoc :exit true))
+       (nil? msg) (stop)
        :else (handle-message conn (parse-message msg))))))
 
 (defn connect [server]
@@ -246,6 +248,6 @@
         join-message {:msgType "join" :data team-name}]
     (write s join-message)))
 
-(comment (-main "mysema" "boris.helloworldopen.fi" "9090"))
+(defn start [] (-main "mysema" "boris.helloworldopen.fi" "9090"))
 
 
