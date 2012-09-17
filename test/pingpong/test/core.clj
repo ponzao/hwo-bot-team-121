@@ -21,16 +21,16 @@
 
 (facts "ball target calculation"
   (let [calc (ball-target-calculator 640 480 50 10 5)]
-    (calc [20 10] [30 20])   => [15 5]    ; top corner    
-    (calc [20 460] [30 450]) => [15 465]  ; bottom corner
-    (calc [80 20] [90 40])   => [15 120]  ; top reflection
-    (calc [80 470] [90 460]) => [15 415]  ; bottom reflection
-    (calc [40 45] [50 50])   => [15 65/2] ; down    
-    (calc [40 45] [50 40])   => [15 115/2]; up
-    (calc [40 40] [50 40])   => [15 40])) ; straight    
+    (calc [20 10] [30 20])   => [1    15 5]    ; top corner    
+    (calc [20 460] [30 450]) => [-1   15 465]  ; bottom corner
+    (calc [80 20] [90 40])   => [-2   15 120]  ; top reflection
+    (calc [80 470] [90 460]) => [1    15 415]  ; bottom reflection
+    (calc [40 45] [50 50])   => [1/2  15 65/2] ; down    
+    (calc [40 45] [50 40])   => [-1/2 15 115/2]; up
+    (calc [40 40] [50 40])   => [0    15 40])) ; straight    
 
 (facts "paddle target calculation"
-  (let [calc (paddle-destination-calculator example-data)
+  (let [calc (comp #(nth % 2) (paddle-destination-calculator example-data))
         max-height (-> example-data :conf :maxHeight)
         paddle-height (-> example-data :conf :paddleHeight)
         center-position (- (/ max-height 2) (/ paddle-height 2))]

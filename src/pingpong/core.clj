@@ -62,7 +62,6 @@
           :else     x))
   ([max x] (constrain 0 max x)))
 
-; TODO should probably also return angle
 (defn ball-target-calculator
   [max-width max-height paddle-height paddle-width ball-radius] 
   (let [x-at-paddle (+ paddle-width ball-radius)
@@ -78,7 +77,7 @@
                                                                  height
                                                                  ball-radius))
                                  (if (= out :over) height ball-radius)])
-            [x-at-paddle y-at-paddle]))))))
+            [angle x-at-paddle y-at-paddle]))))))
 
 ; paddle target calculation
 
@@ -109,7 +108,6 @@
 (defn ball-direction [[x1 _] [x2 _]]
   (if (< x1 x2) :left :right))
 
-; TODO should probably also return ball target and angle
 (defn paddle-destination-calculator
   [{left :left ball :ball {:keys [maxWidth maxHeight paddleHeight paddleWidth ballRadius]} :conf}]
   (let [ball-target-calc (ball-target-calculator maxWidth maxHeight 
@@ -118,12 +116,12 @@
         center-position  (- (/ maxHeight 2) (/ paddleHeight 2))
         max-position     (- maxHeight paddleHeight)]
     (fn [p1 p2] ; [[x1 y1] [x2 y2]]      
-      (let [[_ ball-target] (ball-target-calc p1 p2)
+      (let [[angle _ ball-target] (ball-target-calc p1 p2)
             ball-dir        (ball-direction p1 p2)
-            target          (- ball-target (/ paddleHeight 2))]
-        (case ball-dir
-          :left (constrain max-position target)
-          :right center-position)))))
+            target          (case ball-dir
+                              :left (constrain max-position (- ball-target (/ paddleHeight 2)))
+                              :right center-position)]
+            [angle ball-target target]))))
 
 (def paddle-destination-calc (atom nil))
 
@@ -150,10 +148,8 @@
         (take-ball-events (rest events))))
     [event1 event2]))
       
-; TODO instead of two events the strategy should get the final movement vector of the ball
-
 ; hits ball at calculated position (paddle center)
-(defn basic-strategy-move [conf position target event1 event2]
+(defn basic-strategy-move [conf position angle target]
   (let [diff  (- target position)
         speed @paddle-speed]
     (if (<= (Math/abs diff) speed)
@@ -161,36 +157,26 @@
       (if (< diff 0) -1 1))))
 
 ; hits ball with paddle corner of ball direction
-(defn corner-strategy-move [conf position target [x1 y1 :as ev1] [x2 y2 :as ev2]]
+(defn corner-strategy-move [conf position angle target]
   (let [{:keys [maxWidth maxHeight paddleHeight paddleWidth ballRadius]} conf
-        offset        (- (/ paddleHeight 2) ballRadius) 
+        offset        (- (/ paddleHeight 2) ballRadius)
         max-position  (- maxHeight paddleHeight)
-        corner        (if (< y1 y2) ; XXX not reliable for reflections
-                        (+ target offset)
-                        (- target offset))
+        corner        (if (neg? angle)
+                        (- target offset)
+                        (+ target offset))
         new-target  (constrain max-position corner)]
-    (basic-strategy-move conf position new-target ev1 ev2)))
+    (basic-strategy-move conf position angle new-target)))
 
-; aims ball with paddle center, but moves into opposite ball direction when ball is near
-(defn mobile-strategy-move [conf position target [x1 y1 :as ev1] [x2 y2 :as ev2]]
-  (let [{:keys [maxWidth maxHeight paddleHeight paddleWidth ballRadius]} conf
-        x-at-paddle (+ paddleWidth ballRadius)
-        ball-dir    (if (< y1 y2) :up :down) ; XXX not reliable for reflections
-        ball-speed  (- x2 x1)
-        near       (< (- x1 x-at-paddle) (* 2 ball-speed))] 
-    (if near 
-      ; TODO don't do the move in corners
-      (case ball-dir :up 1 :down -1)
-      (basic-strategy-move conf position target ev1 ev2)))) 
+; TODO strategies with movement etc
 
 (defn calculate-and-make-move! [conn data]
   (let [[event1 event2] (take-ball-events @ball-events) 
         position        (-> data :left :y)
-        target          (@paddle-destination-calc event1 event2)
+        [angle ball target] (@paddle-destination-calc event1 event2)
         diff            (- target position)
         speed            @paddle-speed
                         ; TODO strategy selection 
-        movement        (corner-strategy-move (:conf data ) position target event1 event2)]
+        movement        (corner-strategy-move (:conf data) position angle target)]
     (move-paddle! conn movement)))
                   
 (defn time-diff []
