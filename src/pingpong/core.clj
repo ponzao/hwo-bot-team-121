@@ -62,6 +62,7 @@
           :else     x))
   ([max x] (constrain 0 max x)))
 
+; TODO should probably also return angle
 (defn ball-target-calculator
   [max-width max-height paddle-height paddle-width ball-radius] 
   (let [x-at-paddle (+ paddle-width ball-radius)
@@ -108,6 +109,7 @@
 (defn ball-direction [[x1 _] [x2 _]]
   (if (< x1 x2) :left :right))
 
+; TODO should probably also return ball target and angle
 (defn paddle-destination-calculator
   [{left :left ball :ball {:keys [maxWidth maxHeight paddleHeight paddleWidth ballRadius]} :conf}]
   (let [ball-target-calc (ball-target-calculator maxWidth maxHeight 
