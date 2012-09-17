@@ -34,8 +34,8 @@
         max-height (-> example-data :conf :maxHeight)
         paddle-height (-> example-data :conf :paddleHeight)
         center-position (- (/ max-height 2) (/ paddle-height 2))]
-    (calc [20 10] [30 20])   => 0     ; top corner    
-    (calc [20 460] [30 450]) => 430   ; bottom corner
+    (calc [20 10] [30 20])   => -20   ; top corner    
+    (calc [20 460] [30 450]) => 440   ; bottom corner
     (calc [80 20] [90 40])   => 95    ; top reflection
     (calc [80 470] [90 460]) => 390   ; bottom reflection
     (calc [40 45] [50 50])   => 15/2  ; down    

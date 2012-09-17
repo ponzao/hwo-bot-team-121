@@ -108,6 +108,7 @@
 (defn ball-direction [[x1 _] [x2 _]]
   (if (< x1 x2) :left :right))
 
+; XXX can we handle this logic somehow in the strategies?
 (defn paddle-destination-calculator
   [{left :left ball :ball {:keys [maxWidth maxHeight paddleHeight paddleWidth ballRadius]} :conf}]
   (let [ball-target-calc (ball-target-calculator maxWidth maxHeight 
