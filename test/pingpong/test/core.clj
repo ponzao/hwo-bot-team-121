@@ -1,12 +1,15 @@
 (ns pingpong.test.core
   (:use pingpong.core midje.sweet))
 
-(def example-data
-  {:time 1336219278079,
-   :left {:y 186.0 :playerName "JohnMcEnroe"}
-   :right {:y 310.0 :playerName "BorisBecker"}
-   :ball {:pos {:x 291.0 :y 82.0}}
-   :conf {:maxWidth 640 :maxHeight 480 :paddleHeight 50 :paddleWidth 10 :ballRadius 5 :tickInterval 15}})
+(def conf 
+  {:maxWidth     640 
+   :maxHeight    480 
+   :paddleHeight 50 
+   :paddleWidth  10
+   :ballRadius   5 
+   :tickInterval 15})
+
+(def data {:conf conf})
 
 (facts "calculate-x-at-y"
   (calculate-x-at-y 0 [0 1] 1) => 0)
@@ -20,7 +23,7 @@
   (ball-direction [2 0] [1 0]) => :right)
 
 (facts "ball target calculation"
-  (let [calc (ball-target-calculator 640 480 50 10 5)]
+  (let [calc #(calculate-ball-target conf %1 %2)]
     (calc [20 10] [30 20])   => [1    15 5]    ; top corner    
     (calc [20 460] [30 450]) => [-1   15 465]  ; bottom corner
     (calc [80 20] [90 40])   => [-2   15 120]  ; top reflection
@@ -30,10 +33,7 @@
     (calc [40 40] [50 40])   => [0    15 40])) ; straight    
 
 (facts "paddle target calculation"
-  (let [calc (comp #(nth % 2) (paddle-destination-calculator example-data))
-        max-height (-> example-data :conf :maxHeight)
-        paddle-height (-> example-data :conf :paddleHeight)
-        center-position (- (/ max-height 2) (/ paddle-height 2))]
+  (let [calc (comp #(nth % 2)  #(calculate-paddle-target data %1 %2))]
     (calc [20 10] [30 20])   => -20   ; top corner    
     (calc [20 460] [30 450]) => 440   ; bottom corner
     (calc [80 20] [90 40])   => 95    ; top reflection
