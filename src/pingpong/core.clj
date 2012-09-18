@@ -11,9 +11,6 @@
 
 ; paddle always between y 0, (- max-height paddle-height)
 
-; contains data entries of the ongoing game
-(def game-data (atom ()))
-
 (def ball-events (atom ()))
 
 ; temporary
@@ -79,7 +76,9 @@
 
 ; XXX can we handle this logic somehow in the strategies?
 (defn calculate-paddle-target
-  [{left :left ball :ball {:keys [maxWidth maxHeight paddleHeight paddleWidth ballRadius ] :as conf} :conf :as data} p1 p2]
+  [{left :left ball :ball
+    {:keys [maxWidth maxHeight paddleHeight paddleWidth ballRadius] :as conf} :conf
+    :as data} p1 p2]
   (let [center-position  (- (/ maxHeight 2) (/ paddleHeight 2))
         max-position     (- maxHeight paddleHeight)
         [angle _ ball-target] (calculate-ball-target conf p1 p2)
@@ -151,29 +150,27 @@
                         {paddle-y :y} :left :as data}]
   (swap! ball-events conj [ball-x ball-y])  
   (when (time-diff) ; only react max 10 times / sec
-    (swap! game-data conj data)
     (when (and (first @ball-events) (second @ball-events)) ; react after 2 ball events      
       (move-paddle! conn (calculate-move data)))))
       
 ; game control
 
-(defn handle-message [conn {msgType :msgType data :data}]
-  (case msgType
-    joined (println (str "Game joined successfully. Use following URL for visualization: " data))
-    gameStarted (println (str "Game started: " (first data) " vs. " (second data)))
-    gameIsOn (make-move! conn data)
-    gameIsOver (do (println (str "Game ended. Winner: " data))
-                   (reset! game-data ())
-                   (swap! game-history conj {:win? (= "mysema" data)}))
-    error (error data)
-    'pass))
+(defn handle-message [conn {msg-type :msgType data :data}]
+  (case msg-type
+    :joined (println (str "Game joined successfully. Use following URL for visualization: " data))
+    :gameStarted (println (str "Game started: " (first data) " vs. " (second data)))
+    :gameIsOn (make-move! conn data)
+    :gameIsOver (do (println (str "Game ended. Winner: " data))
+                   (let [{win-count true
+                          lose-count false} (frequencies (map :win? (swap! game-history conj {:win? (= "mysema" data)})))]
+                     (println win-count "-" lose-count)))
+    :error (println "error: " data)
+    :pass))
 
 (defn parse-message [data]
   (try
-    (let [msg (read-json data)]
-      {:msgType (symbol (:msgType msg))
-       :data (:data msg)})
-    (catch Throwable e {:msgType 'error :data (. e getMessage)})))
+    (update-in (read-json data true) [:msgType] keyword)
+    (catch Throwable e {:msg-type :error :data (. e getMessage)})))
 
 (defn stop [conn] (assoc conn :exit true)) 
                           
