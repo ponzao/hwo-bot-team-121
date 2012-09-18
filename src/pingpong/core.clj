@@ -223,7 +223,7 @@
   (try
     (let [msg (read-json data)]
       {:msgType (symbol (:msgType msg))
-       :data    (:data msg)})
+       :data (:data msg)})
     (catch Throwable e {:msgType 'error :data (. e getMessage)})))
 
 (defn stop [] (dosync (swap! conn assoc :exit true))) 
@@ -234,6 +234,20 @@
       (cond
        (nil? msg) (stop)
        :else (handle-message conn (parse-message msg))))))
+
+(defn read-msg
+  [conn]
+  (.readLine (:in conn)))
+
+(defn game-data-seq
+  []
+  (take-while (complement nil?)
+              (repeatedly #(read-msg @conn))))
+
+(comment
+(defn conn-handler []
+  (doseq [msg (game-data-seq)]
+    (handle-message conn (parse-message msg)))))
 
 (defn connect [server]
   (let [socket (Socket. (:name server) (:port server))
