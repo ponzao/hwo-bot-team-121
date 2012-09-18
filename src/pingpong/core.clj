@@ -155,15 +155,22 @@
       
 ; game control
 
+(def current-game-data (atom []))
+(def lost-games (atom []))
+
 (defn handle-message [conn {msg-type :msgType data :data}]
   (case msg-type
     :joined (println (str "Game joined successfully. Use following URL for visualization: " data))
     :gameStarted (println (str "Game started: " (first data) " vs. " (second data)))
-    :gameIsOn (make-move! conn data)
+    :gameIsOn (do (swap! current-game-data conj data)
+                  (make-move! conn data))
     :gameIsOver (do (println (str "Game ended. Winner: " data))
-                   (let [{win-count true
-                          lose-count false} (frequencies (map :win? (swap! game-history conj {:win? (= "mysema" data)})))]
-                     (println win-count "-" lose-count)))
+                    (when (not= data "mysema")
+                      (swap! lost-games conj @current-game-data))
+                    (reset! current-game-data [])
+                    (let [{win-count true
+                           lose-count false} (frequencies (map :win? (swap! game-history conj {:win? (= "mysema" data)})))]
+                      (println win-count "-" lose-count)))
     :error (println "error: " data)
     :pass))
 
@@ -202,3 +209,13 @@
     (.start (Thread. #(conn-handler conn)))))
 
 (defn start [] (-main "mysema" "boris.helloworldopen.fi" "9090"))
+
+(comment (use '(incanter core stats charts))
+
+         (defn view-ball
+           [games]
+           (doseq [game games]
+             (let [pos (comp :pos :ball)
+                   ball-x (map (comp :x pos) game)
+                   ball-y (map (comp :y pos) game)]
+               (view (xy-plot ball-x ball-y))))))
