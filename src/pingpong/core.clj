@@ -17,20 +17,14 @@
 (def ball-events (atom ()))
 
 ; temporary
-(def paddle-positions (atom ()))
-
 (def last-sent-timestamp (atom (System/currentTimeMillis)))
 
 (def last-direction (atom 0))
 
 ; strategy
 
-;; ([:win? true/false :style :style1/style2/style3/style4/:aggressive/:defensive/:optimistic/:anticipating/:...], ...)
+;; ({:win? true/false :style :style1/style2/style3/style4/:aggressive/:defensive/:optimistic/:anticipating/:...}, ...)
 (def game-history (atom ()))
-
-;; TODO based on game history
-(defn calculate-playing-style []
-  :basic)
 
 ; ball target calculation
 
@@ -62,72 +56,41 @@
           :else     x))
   ([max x] (constrain 0 max x)))
 
-(defn ball-target-calculator
-  [max-width max-height paddle-height paddle-width ball-radius] 
-  (let [x-at-paddle (+ paddle-width ball-radius)
-        height      (- max-height ball-radius)]
-    (fn [p1 p2] ; [[x1 y1] [x2 y2]]
-      (loop [angle (calculate-angle p1 p2)           
-             point p2]
-        (let [y-at-paddle (calculate-y-at-x angle point x-at-paddle)
-              out (out-of-bounds ball-radius height y-at-paddle)]
-          (if out
-            ; TODO: Simplify by returning points from calculate-...
-            (recur (* -1 angle) [(calculate-x-at-y angle point (if (= out :over)
-                                                                 height
-                                                                 ball-radius))
-                                 (if (= out :over) height ball-radius)])
-            [angle x-at-paddle y-at-paddle]))))))
+(defn calculate-ball-target
+  [{:keys [maxWidth maxHeight paddleHeight paddleWidth ballRadius]} p1 p2]
+  (let [x-at-paddle (+ paddleWidth ballRadius)
+        height      (- maxHeight ballRadius)]
+    (loop [angle (calculate-angle p1 p2)     
+           point p2]
+      (let [y-at-paddle (calculate-y-at-x angle point x-at-paddle)
+            out (out-of-bounds ballRadius height y-at-paddle)]
+        (if out
+          (recur (* -1 angle) [(calculate-x-at-y angle point (if (= out :over)
+                                                               height
+                                                               ballRadius))
+                               (if (= out :over) height ballRadius)])
+          [angle x-at-paddle y-at-paddle])))))
 
-; paddle target calculation
-
-; vertical increment for 1/10 second
-(def paddle-speed (atom nil))
-
-; FIXME this is not reliable
-(defn calculate-paddle-speed []
-  "initializes paddle-speed after first two moves"
-  (when (and (nil? @paddle-speed)
-             (= (count @game-data) 2))
-    (let [[one two & _] @game-data
-           distance    (- (-> one :left :y) (-> two :left :y))
-           time-in-ms  (- (-> one :time) (-> two :time))
-           speed       (/ distance (/ time-in-ms 100))]
-      ; XXX for some reason calculated speed times two works better
-      (reset! paddle-speed (* 2.0 speed)))))
-
-; workaround
-(defn init-paddle-speed! [data]
-  (when-not @paddle-speed) 
-    (reset! paddle-speed (* 0.375 (-> data :conf :paddleHeight))))
-
-;; Nice to have?
-(defn opponent-paddle-direction
-  [?])
+(defn calculate-paddle-speed [data]
+  (* 0.375 (-> data :conf :paddleHeight)))
 
 (defn ball-direction [[x1 _] [x2 _]]
   (if (< x1 x2) :left :right))
 
 ; XXX can we handle this logic somehow in the strategies?
-(defn paddle-destination-calculator
-  [{left :left ball :ball {:keys [maxWidth maxHeight paddleHeight paddleWidth ballRadius]} :conf}]
-  (let [ball-target-calc (ball-target-calculator maxWidth maxHeight 
-                                                 paddleHeight paddleWidth
-                                                 ballRadius)
-        center-position  (- (/ maxHeight 2) (/ paddleHeight 2))
-        max-position     (- maxHeight paddleHeight)]
-    (fn [p1 p2] ; [[x1 y1] [x2 y2]]      
-      (let [[angle _ ball-target] (ball-target-calc p1 p2)
-            ball-dir        (ball-direction p1 p2)
-            target          (case ball-dir
-                              :left (- ball-target (/ paddleHeight 2))
-                              :right center-position)]
-            [angle ball-target target]))))
+(defn calculate-paddle-target
+  [{left :left ball :ball {:keys [maxWidth maxHeight paddleHeight paddleWidth ballRadius ] :as conf} :conf :as data} p1 p2]
+  (let [center-position  (- (/ maxHeight 2) (/ paddleHeight 2))
+        max-position     (- maxHeight paddleHeight)
+        [angle _ ball-target] (calculate-ball-target conf p1 p2)
+        ball-dir        (ball-direction p1 p2)
+        target          (case ball-dir
+                          :left (- ball-target (/ paddleHeight 2))
+                          :right center-position)]
+    [angle ball-target target]))
 
-(def paddle-destination-calc (atom nil))
-
-(defn write [conn data]
-  (doto (:out @conn)
+(defn write! [conn data]
+  (doto (:out conn)
     (.println (json-str data))
     (.flush)))
 
@@ -136,7 +99,7 @@
   (when-not (= direction @last-direction)
     (reset! last-direction direction)
     (reset! last-sent-timestamp (System/currentTimeMillis))
-    (write conn {:msgType "changeDir" :data direction})))
+    (write! conn {:msgType "changeDir" :data direction})))
 
 (defn take-ball-events [[event1 event2 & _ :as events]]
   (if (> (count events) 2)
@@ -150,72 +113,58 @@
     [event1 event2]))
       
 ; hits ball at calculated position (paddle center)
-(defn basic-strategy-move [{:keys [maxHeight paddleHeight]} position angle target]
+(defn basic-strategy-move [data {:keys [maxHeight paddleHeight]} position angle target]
   (let [max-position (- maxHeight paddleHeight)
         norm-target  (constrain max-position target)    
         diff         (- norm-target position)
-        speed        @paddle-speed]
+        speed        (calculate-paddle-speed data)]
     (if (<= (Math/abs diff) speed)
       (/ diff speed)
       (if (< diff 0) -1 1))))
 
 ; hits ball with paddle corner of ball direction
-(defn corner-strategy-move [conf position angle target]
+(defn corner-strategy-move [data conf position angle target]
   (let [{:keys [maxHeight paddleHeight ballRadius]} conf
         offset        (- (/ paddleHeight 2) ballRadius)
         max-position  (- maxHeight paddleHeight)
-        corner        (if (neg? angle)
-                        (- target offset)
-                        (+ target offset))
+        corner        ((if (neg? angle) - +) target offset)
         new-target  (constrain max-position corner)]
-    (basic-strategy-move conf position angle new-target)))
+    (basic-strategy-move data conf position angle new-target)))
 
 ; TODO strategies with movement etc
-
-(defn calculate-and-make-move! [conn data]
+(defn calculate-move [data]
   (let [[event1 event2] (take-ball-events @ball-events) 
         position        (-> data :left :y)
-        [angle ball target] (@paddle-destination-calc event1 event2)
+        [angle ball target] (calculate-paddle-target data event1 event2)
         diff            (- target position)
-        speed            @paddle-speed
+        speed            (calculate-paddle-speed data)
                         ; TODO strategy selection 
-        movement        (corner-strategy-move (:conf data) position angle target)]
-    (move-paddle! conn movement)))
+        movement        (corner-strategy-move data (:conf data) position angle target)]
+    movement))
                   
 (defn time-diff []
   (let [current (System/currentTimeMillis)
         old @last-sent-timestamp]
     (> (- current old) 100)))
 
-(defn init-paddle-dest-calc! [data]
-  (when (nil? @paddle-destination-calc) 
-    (reset! paddle-destination-calc (paddle-destination-calculator data))))
-
-(defn make-move [conn {{{ball-x :x ball-y :y} :pos} :ball
-                       {paddle-y :y} :left :as data}]
+(defn make-move! [conn {{{ball-x :x ball-y :y} :pos} :ball
+                        {paddle-y :y} :left :as data}]
   (swap! ball-events conj [ball-x ball-y])  
-  (swap! paddle-positions conj paddle-y) ; XXX temporary 
-  (init-paddle-speed! data)
-  (init-paddle-dest-calc! data)    
   (when (time-diff) ; only react max 10 times / sec
-    (swap! game-data conj data)    
+    (swap! game-data conj data)
     (when (and (first @ball-events) (second @ball-events)) ; react after 2 ball events      
-      (calculate-and-make-move! conn data))))
+      (move-paddle! conn (calculate-move data)))))
       
 ; game control
 
-(def url (atom nil))
-
-(def conn (atom nil))
-
 (defn handle-message [conn {msgType :msgType data :data}]
   (case msgType
-    joined (do (info (str "Game joined successfully. Use following URL for visualization: " data))
-               (reset! url data))
-    gameStarted (info (str "Game started: " (nth data 0) " vs. " (nth data 1)))
-    gameIsOn (make-move conn data)
-    gameIsOver (do (info (str "Game ended. Winner: " data))
-                   (reset! game-data ()))
+    joined (println (str "Game joined successfully. Use following URL for visualization: " data))
+    gameStarted (println (str "Game started: " (first data) " vs. " (second data)))
+    gameIsOn (make-move! conn data)
+    gameIsOver (do (println (str "Game ended. Winner: " data))
+                   (reset! game-data ())
+                   (swap! game-history conj {:win? (= "mysema" data)}))
     error (error data)
     'pass))
 
@@ -226,42 +175,33 @@
        :data (:data msg)})
     (catch Throwable e {:msgType 'error :data (. e getMessage)})))
 
-(defn stop [] (dosync (swap! conn assoc :exit true))) 
+(defn stop [conn] (assoc conn :exit true)) 
                           
-(defn conn-handler []
-  (while (nil? (:exit @conn))
-    (let [msg (.readLine (:in @conn))]
-      (cond
-       (nil? msg) (stop)
-       :else (handle-message conn (parse-message msg))))))
-
 (defn read-msg
   [conn]
   (.readLine (:in conn)))
 
-(defn game-data-seq
-  []
-  (take-while (complement nil?)
-              (repeatedly #(read-msg @conn))))
+(def not-nil? (complement nil?))
 
-(comment
-(defn conn-handler []
-  (doseq [msg (game-data-seq)]
-    (handle-message conn (parse-message msg)))))
+(defn game-data-seq
+  [conn]
+  (take-while not-nil? (repeatedly #(read-msg conn))))
+
+(defn conn-handler [conn]
+  (do (doseq [msg (game-data-seq conn)]
+        (handle-message conn (parse-message msg)))
+      (stop conn)))
 
 (defn connect [server]
   (let [socket (Socket. (:name server) (:port server))
         in (BufferedReader. (InputStreamReader. (.getInputStream socket)))
         out (PrintWriter. (.getOutputStream socket))]
-    (reset! conn {:in in :out out})
-    (doto (Thread. conn-handler) (.start))
-    conn))
+    {:in in :out out}))
 
 (defn -main [team-name hostname port]
-  (let [s (connect {:name hostname :port (read-string port)})
+  (let [conn (connect {:name hostname :port (read-string port)})
         join-message {:msgType "join" :data team-name}]
-    (write s join-message)))
+    (write! conn join-message)
+    (.start (Thread. #(conn-handler conn)))))
 
 (defn start [] (-main "mysema" "boris.helloworldopen.fi" "9090"))
-
-
