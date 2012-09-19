@@ -55,25 +55,11 @@
                                (if (= out :over) height ballRadius)])
           [angle x-at-paddle y-at-paddle])))))
 
-(defn calculate-paddle-speed [data]
-  (* 0.375 (-> data :conf :paddleHeight)))
+(defn calculate-paddle-speed [conf]
+  (* 0.375 (:paddleHeight conf)))
 
 (defn ball-direction [[x1 _] [x2 _]]
   (if (< x1 x2) :left :right))
-
-; XXX can we handle this logic somehow in the strategies?
-(defn calculate-paddle-target
-  [{left :left ball :ball
-    {:keys [maxWidth maxHeight paddleHeight paddleWidth ballRadius] :as conf} :conf
-    :as data} p1 p2]
-  (let [center-position  (- (/ maxHeight 2) (/ paddleHeight 2))
-        max-position     (- maxHeight paddleHeight)
-        [angle _ ball-target] (calculate-ball-target conf p1 p2)
-        ball-dir        (ball-direction p1 p2)
-        target          (case ball-dir
-                          :left (- ball-target (/ paddleHeight 2))
-                          :right center-position)]
-    [angle ball-target target]))
 
 (defn write! [conn data]
   (doto (:out conn)
@@ -98,34 +84,43 @@
         (take-ball-events (rest events))))
     [event1 event2]))
       
-; hits ball at calculated position (paddle center)
-(defn basic-strategy-move [data {:keys [maxHeight paddleHeight]} position angle target]
-  (let [max-position (- maxHeight paddleHeight)
-        norm-target  (constrain max-position target)    
-        diff         (- norm-target position)
-        speed        (calculate-paddle-speed data)]
+(defn approach-target [conf position target]
+  (let [diff (- target position)
+        speed (calculate-paddle-speed conf)]
     (if (<= (Math/abs diff) speed)
       (/ diff speed)
       (if (< diff 0) -1 1))))
 
-; hits ball with paddle corner of ball direction
-(defn corner-strategy-move [data conf position angle target]
-  (let [{:keys [maxHeight paddleHeight ballRadius]} conf
-        offset        (- (/ paddleHeight 2) ballRadius)
+; hits ball at calculated position (paddle center)
+(defn basic-strategy-move [conf paddle-position ball-angle ball-dir ball-target]
+  (let [{:keys [maxHeight paddleHeight]} conf
         max-position  (- maxHeight paddleHeight)
-        corner        ((if (neg? angle) - +) target offset)
-        new-target  (constrain max-position corner)]
-    (basic-strategy-move data conf position angle new-target)))
+        paddle-target (case ball-dir
+                        :left  (- ball-target (/ paddleHeight 2))
+                        :right (- (/ maxHeight 2) (/ paddleHeight 2)))
+        norm-target   (constrain max-position paddle-target)]
+    (approach-target conf paddle-position norm-target)))
+
+; hits ball with paddle corner of ball direction
+(defn corner-strategy-move [conf paddle-position ball-angle ball-dir ball-target]
+  (let [{:keys [maxHeight paddleHeight ballRadius]} conf
+        max-position  (- maxHeight paddleHeight)
+        offset        (if (neg? ball-angle) (- ballRadius paddleHeight)
+                                            (* -1 ballRadius)) 
+        paddle-target (case ball-dir 
+                        :left  (+ ball-target offset)
+                        :right (- (/ maxHeight 2) (/ paddleHeight 2)))
+        norm-target   (constrain max-position paddle-target)]
+    (approach-target conf paddle-position norm-target)))
 
 ; TODO strategies with movement etc
+
 (defn calculate-move [data ball-events]
   (let [[event1 event2] (take-ball-events ball-events) 
         position        (-> data :left :y)
-        [angle ball target] (calculate-paddle-target data event1 event2)
-        diff            (- target position)
-        speed            (calculate-paddle-speed data)
-                        ; TODO strategy selection 
-        movement        (basic-strategy-move data (:conf data) position angle target)]
+        [angle _ target] (calculate-ball-target (:conf data) event1 event2)
+        direction       (ball-direction event1 event2)
+        movement        (corner-strategy-move (:conf data) position angle direction target)]
     movement))
 
 (defn time-diff [last-timestamp]

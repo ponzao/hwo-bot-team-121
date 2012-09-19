@@ -32,7 +32,7 @@
     (calc [40 45] [50 40])   => [-1/2 15 115/2]; up
     (calc [40 40] [50 40])   => [0    15 40])) ; straight    
 
-(facts "paddle target calculation"
+(comment (facts "paddle target calculation"
   (let [calc (comp #(nth % 2)  #(calculate-paddle-target data %1 %2))]
     (calc [20 10] [30 20])   => -20   ; top corner    
     (calc [20 460] [30 450]) => 440   ; bottom corner
@@ -40,7 +40,7 @@
     (calc [80 470] [90 460]) => 390   ; bottom reflection
     (calc [40 45] [50 50])   => 15/2  ; down    
     (calc [40 45] [50 40])   => 65/2  ; up
-    (calc [40 40] [50 40])   => 15))  ; straight
+    (calc [40 40] [50 40])   => 15)))  ; straight
 
 ; TODO tests for strategies
-       
+ 
