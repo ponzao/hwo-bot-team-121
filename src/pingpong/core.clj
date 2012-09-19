@@ -40,10 +40,6 @@
           :else     x))
   ([max x] (constrain 0 max x)))
 
-(defn ball-speed 
-  [x1 t1 x2 t2]
-  (if (= t1 t2) 0 (Math/abs (double (/ (- x2 x1) (- t2 t1))))))
-
 (defn time-left-to-hit-target
   [direction {:keys [maxWidth paddleWidth]} [x1 y1 t1] [x2 y2 t2]]
   (case direction 
@@ -118,8 +114,7 @@
 (defn speeding-basic-strategy-move [conf paddle-position ball-angle ball-dir ball-target toimpact]
   (let [{:keys [maxHeight paddleHeight]} conf
         area-center (- (/ maxHeight 2) (/ paddleHeight 2))
-        paddle-center (- ball-target (/ paddleHeight 2))
-        
+        paddle-center (- ball-target (/ paddleHeight 2))     
         target (case ball-dir
                  :left (if (> 400 toimpact) (if (neg? ball-angle) maxHeight 0) paddle-center)
                  :right area-center)
