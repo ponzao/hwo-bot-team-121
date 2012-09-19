@@ -11,20 +11,7 @@
 
 ; paddle always between y 0, (- max-height paddle-height)
 
-(def ball-events (atom ()))
-
-; temporary
-(def last-sent-timestamp (atom (System/currentTimeMillis)))
-
-(def last-direction (atom 0))
-
-; strategy
-
-;; ({:win? true/false :style :style1/style2/style3/style4/:aggressive/:defensive/:optimistic/:anticipating/:...}, ...)
-(def game-history (atom ()))
-
 ; ball target calculation
-
 (defn calculate-angle
   [[x1 y1] [x2 y2]]
   (if (= x2 x1) 0
@@ -94,10 +81,10 @@
     (.flush)))
 
 (defn move-paddle!
-  [conn direction]
+  [conn direction last-direction last-timestamp]
   (when-not (= direction @last-direction)
     (reset! last-direction direction)
-    (reset! last-sent-timestamp (System/currentTimeMillis))
+    (reset! last-timestamp (System/currentTimeMillis))
     (write! conn {:msgType "changeDir" :data direction})))
 
 (defn take-ball-events [[event1 event2 & _ :as events]]
@@ -131,47 +118,36 @@
     (basic-strategy-move data conf position angle new-target)))
 
 ; TODO strategies with movement etc
-(defn calculate-move [data]
-  (let [[event1 event2] (take-ball-events @ball-events) 
+(defn calculate-move [data ball-events]
+  (let [[event1 event2] (take-ball-events ball-events) 
         position        (-> data :left :y)
         [angle ball target] (calculate-paddle-target data event1 event2)
         diff            (- target position)
         speed            (calculate-paddle-speed data)
                         ; TODO strategy selection 
-        movement        (corner-strategy-move data (:conf data) position angle target)]
+        movement        (basic-strategy-move data (:conf data) position angle target)]
     movement))
-                  
-(defn time-diff []
+
+(defn time-diff [last-timestamp]
   (let [current (System/currentTimeMillis)
-        old @last-sent-timestamp]
+        old @last-timestamp]
     (> (- current old) 100)))
 
 (defn make-move! [conn {{{ball-x :x ball-y :y} :pos} :ball
-                        {paddle-y :y} :left :as data}]
-  (swap! ball-events conj [ball-x ball-y])  
-  (when (time-diff) ; only react max 10 times / sec
+                        {paddle-y :y} :left :as data} ball-events last-timestamp last-direction]
+  (swap! ball-events conj [ball-x ball-y])
+  (when (time-diff last-timestamp) ; only react max 10 times / sec
     (when (and (first @ball-events) (second @ball-events)) ; react after 2 ball events      
-      (move-paddle! conn (calculate-move data)))))
+      (move-paddle! conn (calculate-move data @ball-events) last-direction last-timestamp))))
       
-; game control
-
-(def current-game-data (atom []))
-(def lost-games (atom []))
-
-(defn handle-message [conn {msg-type :msgType data :data}]
+(defn handle-message [conn {msg-type :msgType data :data} ball-events game-history last-timestamp
+                      last-direction]
   (case msg-type
     :joined (println (str "Game joined successfully. Use following URL for visualization: " data))
     :gameStarted (println (str "Game started: " (first data) " vs. " (second data)))
-    :gameIsOn (do (swap! current-game-data conj data)
-                  (make-move! conn data))
+    :gameIsOn (make-move! conn data ball-events last-timestamp last-direction)
     :gameIsOver (do (println (str "Game ended. Winner: " data))
-                    (reset! ball-events ())
-                    (when (not= data "mysema")
-                      (swap! lost-games conj @current-game-data))
-                    (reset! current-game-data [])
-                    (let [{win-count true
-                           lose-count false} (frequencies (map :win? (swap! game-history conj {:win? (= "mysema" data)})))]
-                      (println win-count "-" lose-count)))
+                    (reset! ball-events ()))
     :error (println "error: " data)
     :pass))
 
@@ -193,9 +169,15 @@
   (take-while not-nil? (repeatedly #(read-msg conn))))
 
 (defn conn-handler [conn]
-  (do (doseq [msg (game-data-seq conn)]
-        (handle-message conn (parse-message msg)))
-      (stop conn)))
+  (let [game-history (atom [])
+        ball-events (atom ())
+        last-direction (atom nil)
+        last-timestamp (atom (System/currentTimeMillis))]
+    (do (doseq [msg (game-data-seq conn)]
+          (handle-message conn (parse-message msg)
+                          ball-events game-history
+                          last-timestamp last-direction))
+        (stop conn))))
 
 (defn connect [server]
   (let [socket (Socket. (:name server) (:port server))
@@ -210,6 +192,12 @@
     (.start (Thread. #(conn-handler conn)))))
 
 (defn start [] (-main "mysema" "boris.helloworldopen.fi" "9090"))
+
+(defn start-duel [team1 team2]
+  (let [conn (connect {:name "boris.helloworldopen.fi" :port 9090})
+        join-message {:msgType "requestDuel" :data [team1 team2]}]
+    (write! conn join-message)
+    (.start (Thread. #(conn-handler conn)))))
 
 (comment
 (use '[incanter core stats charts])
