@@ -40,6 +40,19 @@
           :else     x))
   ([max x] (constrain 0 max x)))
 
+(defn ball-speed 
+  [x1 t1 x2 t2]
+  (if (= t1 t2) 0 (Math/abs (double (/ (- x2 x1) (- t2 t1))))))
+
+(defn time-left-to-hit-target
+  [direction {:keys [maxWidth paddleWidth]} [x1 y1 t1] [x2 y2 t2]]
+  (case direction 
+    :left (let [dist (- x1 x2)
+                time (- t2 t1)
+                speed (/ dist time)]
+            (/ x2 speed))
+    :right 100000000))
+
 (defn calculate-ball-target
   [{:keys [maxWidth maxHeight paddleHeight paddleWidth ballRadius]} p1 p2]
   (let [x-at-paddle (+ paddleWidth ballRadius)
@@ -91,7 +104,7 @@
         speed        (calculate-paddle-speed conf)]        
     (if (<= (Math/abs diff) speed)
       (/ diff speed)
-      (if (< diff 0) -1 1))))
+      (if (neg? diff) -1 1))))
 
 ; hits ball at calculated position (paddle center)
 (defn basic-strategy-move [conf paddle-position ball-angle ball-dir ball-target]
@@ -99,6 +112,18 @@
         target (case ball-dir
                  :left  (- ball-target (/ paddleHeight 2))
                  :right (- (/ maxHeight 2) (/ paddleHeight 2)))]
+    (approach-target conf paddle-position target)))
+
+;moves the paddle just before hitting
+(defn speeding-basic-strategy-move [conf paddle-position ball-angle ball-dir ball-target toimpact]
+  (let [{:keys [maxHeight paddleHeight]} conf
+        area-center (- (/ maxHeight 2) (/ paddleHeight 2))
+        paddle-center (- ball-target (/ paddleHeight 2))
+        
+        target (case ball-dir
+                 :left (if (> 400 toimpact) (if (neg? ball-angle) maxHeight 0) paddle-center)
+                 :right area-center)
+        ]
     (approach-target conf paddle-position target)))
 
 ; hits ball with paddle corner of ball direction
@@ -130,12 +155,14 @@
 
 ; TODO strategies with movement etc
 
+;
 (defn calculate-move [data ball-events]
-  (let [[event1 event2] (take-ball-events ball-events) 
-        position        (-> data :left :y)
+  (let [[event1 event2]  (take-ball-events ball-events) 
+        position         (-> data :left :y)
         [angle _ target] (calculate-ball-target (:conf data) event1 event2)
-        direction       (ball-direction event1 event2)
-        movement        (corner-strategy-move (:conf data) position angle direction target)]
+        direction        (ball-direction event1 event2)
+        toimpact         (time-left-to-hit-target direction (:conf data) event2 event1)
+        movement         (speeding-basic-strategy-move (:conf data) position angle direction target toimpact)]
     movement))
 
 (defn time-diff [last-timestamp]
@@ -145,7 +172,7 @@
 
 (defn make-move! [conn {{{ball-x :x ball-y :y} :pos} :ball
                         {paddle-y :y} :left :as data} ball-events last-timestamp last-direction]
-  (swap! ball-events conj [ball-x ball-y])
+  (swap! ball-events conj [ball-x ball-y (:time data)])
   (when (time-diff last-timestamp) ; only react max 10 times / sec
     (when (and (first @ball-events) (second @ball-events)) ; react after 2 ball events      
       (move-paddle! conn (calculate-move data @ball-events) last-direction last-timestamp))))
