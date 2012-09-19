@@ -84,9 +84,11 @@
         (take-ball-events (rest events))))
     [event1 event2]))
       
-(defn approach-target [conf position target]
-  (let [diff (- target position)
-        speed (calculate-paddle-speed conf)]
+(defn approach-target [{:keys [maxHeight paddleHeight] :as conf} position target]
+  (let [max-position (- maxHeight paddleHeight)
+        norm-target  (constrain max-position target)
+        diff         (- norm-target position)
+        speed        (calculate-paddle-speed conf)]        
     (if (<= (Math/abs diff) speed)
       (/ diff speed)
       (if (< diff 0) -1 1))))
@@ -94,43 +96,37 @@
 ; hits ball at calculated position (paddle center)
 (defn basic-strategy-move [conf paddle-position ball-angle ball-dir ball-target]
   (let [{:keys [maxHeight paddleHeight]} conf
-        max-position  (- maxHeight paddleHeight)
-        paddle-target (case ball-dir
-                        :left  (- ball-target (/ paddleHeight 2))
-                        :right (- (/ maxHeight 2) (/ paddleHeight 2)))
-        norm-target   (constrain max-position paddle-target)]
-    (approach-target conf paddle-position norm-target)))
+        target (case ball-dir
+                 :left  (- ball-target (/ paddleHeight 2))
+                 :right (- (/ maxHeight 2) (/ paddleHeight 2)))]
+    (approach-target conf paddle-position target)))
 
 ; hits ball with paddle corner of ball direction
 (defn paddle-corner-strategy-move [conf paddle-position ball-angle ball-dir ball-target]
   (let [{:keys [maxHeight paddleHeight ballRadius]} conf
-        max-position  (- maxHeight paddleHeight)
-        offset        (if (neg? ball-angle) (- ballRadius paddleHeight)
-                                            (* -1 ballRadius)) 
-        paddle-target (case ball-dir 
-                        :left  (+ ball-target offset)
-                        :right (- (/ maxHeight 2) (/ paddleHeight 2)))
-        norm-target   (constrain max-position paddle-target)]
-    (approach-target conf paddle-position norm-target)))
+        offset (if (neg? ball-angle) (- ballRadius paddleHeight)
+                                     (* -1 ballRadius)) 
+        target (case ball-dir 
+                 :left  (+ ball-target offset)
+                 :right (- (/ maxHeight 2) (/ paddleHeight 2)))]
+    (approach-target conf paddle-position target)))
 
 ; aims to position ball in opposite corner
 (defn corner-strategy-move [conf paddle-position ball-angle ball-dir ball-target]
   (let [{:keys [maxHeight maxWidth paddleWidth paddleHeight ballRadius]} conf
-        max-position  (- maxHeight paddleHeight)
-        opposite      [(- maxWidth ballRadius)
-                       (if (neg? ball-angle) ballRadius (- maxHeight ballRadius))]
-        off-angle     (calculate-angle opposite
-                                       [(+ paddleWidth ballRadius) ball-target])
-        center        (- ball-target (/ paddleHeight 2))         
-        offset        (* (constrain -1 1 (- off-angle ball-angle))         
-                         (- (/ paddleHeight 2) ballRadius) )
-        paddle-target (case ball-dir 
-                        :left  (+ center offset)
-                        :right (- (/ maxHeight 2) (/ paddleHeight 2)))
-        norm-target   (constrain max-position paddle-target)]
+        opposite  [(- maxWidth ballRadius)
+                   (if (neg? ball-angle) ballRadius (- maxHeight ballRadius))]
+        off-angle (calculate-angle opposite
+                                   [(+ paddleWidth ballRadius) ball-target])
+        center    (- ball-target (/ paddleHeight 2))         
+        offset    (* (constrain -1 1 (- off-angle ball-angle))         
+                     (- (/ paddleHeight 2) ballRadius) )
+        target   (case ball-dir 
+                   :left  (+ center offset)
+                   :right (- (/ maxHeight 2) (/ paddleHeight 2)))]
     ;(when (= ball-dir :left)
     ;  (println ball-angle ">" off-angle))
-    (approach-target conf paddle-position norm-target)))
+    (approach-target conf paddle-position target)))
 
 ; TODO strategies with movement etc
 
@@ -139,7 +135,7 @@
         position        (-> data :left :y)
         [angle _ target] (calculate-ball-target (:conf data) event1 event2)
         direction       (ball-direction event1 event2)
-        movement        (smart-strategy-move (:conf data) position angle direction target)]
+        movement        (corner-strategy-move (:conf data) position angle direction target)]
     movement))
 
 (defn time-diff [last-timestamp]
