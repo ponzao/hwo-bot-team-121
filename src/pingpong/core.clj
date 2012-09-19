@@ -165,6 +165,7 @@
     :gameIsOn (do (swap! current-game-data conj data)
                   (make-move! conn data))
     :gameIsOver (do (println (str "Game ended. Winner: " data))
+                    (reset! ball-events ())
                     (when (not= data "mysema")
                       (swap! lost-games conj @current-game-data))
                     (reset! current-game-data [])
@@ -210,12 +211,21 @@
 
 (defn start [] (-main "mysema" "boris.helloworldopen.fi" "9090"))
 
-(comment (use '(incanter core stats charts))
+(comment
+(use '[incanter core stats charts])
 
-         (defn view-ball
-           [games]
-           (doseq [game games]
-             (let [pos (comp :pos :ball)
-                   ball-x (map (comp :x pos) game)
-                   ball-y (map (comp :y pos) game)]
-               (view (xy-plot ball-x ball-y))))))
+(defn view-games
+  [games]
+  (doseq [game games]
+    (let [pos (comp :pos :ball)
+          ball-x (map (comp :x pos) game)
+          ball-y (map (comp :y pos) game)
+          left-x (iterate (partial + 0.2) 0)
+          left-y (map (comp :y :left) game)
+          right-x (iterate #(- % 0.2) 640)
+          right-y (map (comp :y :right) game)]
+      (view (doto (scatter-plot ball-x ball-y)
+              (set-x-range 0 640)
+              (set-y-range 0 480)
+              (add-points left-x left-y)
+              (add-points right-x right-y)))))))
