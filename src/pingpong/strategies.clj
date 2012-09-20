@@ -13,11 +13,14 @@
 (defn accelerating
   "Moves the paddle just before hitting."
   [conf paddle-position ball-angle ball-dir ball-target toimpact]
-  (let [{:keys [maxHeight paddleHeight]} conf
+  (let [{:keys [maxHeight paddleHeight ballRadius]} conf
         area-center (- (/ maxHeight 2) (/ paddleHeight 2))
-        paddle-center (- ball-target (/ paddleHeight 2))     
+        paddle-center (- ball-target (/ paddleHeight 2))
+        offset (- (/ paddleHeight 2) ballRadius)
         target (case ball-dir
-                 :left (if (> 400 toimpact) (if (neg? ball-angle) maxHeight 0) paddle-center)
+                 :left (if (> 400 toimpact) 
+                         (if (neg? ball-angle) maxHeight 0) 
+                         paddle-center)
                  :right area-center)]
     (calc/approach-target conf paddle-position target)))
 
