@@ -56,14 +56,17 @@
     (when (and (first @ball-events) (second @ball-events)) ; react after 2 ball events      
       (move-paddle! conn (calculate-move data @ball-events) last-direction last-timestamp))))
       
-(defn handle-message [conn {msg-type :msgType data :data} ball-events game-history last-timestamp
+(defn handle-message [conn {msg-type :msgType data :data} ball-events winners last-timestamp
                       last-direction]
   (case msg-type
     :joined (println (str "Game joined successfully. Use following URL for visualization: " data))
     :gameStarted (println (str "Game started: " (first data) " vs. " (second data)))
     :gameIsOn (make-move! conn data ball-events last-timestamp last-direction)
     :gameIsOver (do (println (str "Game ended. Winner: " data))
-                    (reset! ball-events ()))
+                    (swap! winners conj data)
+                    (println (frequencies @winners))
+                    (reset! ball-events ())
+                    (reset! last-direction nil))
     :error (println "error: " data)
     :pass))
 
@@ -85,13 +88,13 @@
   (take-while not-nil? (repeatedly #(read-msg conn))))
 
 (defn conn-handler [conn]
-  (let [game-history (atom [])
+  (let [winners (atom [])
         ball-events (atom ())
         last-direction (atom nil)
         last-timestamp (atom (System/currentTimeMillis))]
     (do (doseq [msg (game-data-seq conn)]
           (handle-message conn (parse-message msg)
-                          ball-events game-history
+                          ball-events winners
                           last-timestamp last-direction))
         (stop conn))))
 
