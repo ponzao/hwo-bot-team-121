@@ -78,3 +78,10 @@
                  ;:right (- (/ maxHeight 2) (/ paddleHeight 2)))]
     (calc/approach-target conf position target)))
 
+(defn combo
+  "Uses accelerating for small ball angles and corner for bigger ones"
+  [conf position ball-angle ball-dir ball-target toimpact]
+  (let [strategy (if (< (Math/abs ball-angle) 0.2) 
+                   accelerating 
+                   corner)]
+    (strategy conf position ball-angle ball-dir ball-target toimpact)))
