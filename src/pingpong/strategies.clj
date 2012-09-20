@@ -3,7 +3,7 @@
 
 (defn basic
   "Hits ball at calculated position (paddle's center)."
-  [conf paddle-position ball-angle ball-dir ball-target]
+  [conf paddle-position ball-angle ball-dir ball-target toimpact]
   (let [{:keys [maxHeight paddleHeight]} conf
         target (case ball-dir
                  :left  (- ball-target (/ paddleHeight 2))
@@ -24,7 +24,7 @@
 
 (defn zigzag
   "Hits ball with paddle's corner."
-  [conf paddle-position ball-angle ball-dir ball-target]
+  [conf paddle-position ball-angle ball-dir ball-target toimpact]
   (let [{:keys [maxHeight paddleHeight ballRadius]} conf
         offset (if (neg? ball-angle) (- ballRadius paddleHeight)
                                      (* -1 ballRadius)) 
@@ -35,7 +35,7 @@
 
 (defn corner
   "Hits ball into corners."
-  [conf paddle-position ball-angle ball-dir ball-target]
+  [conf paddle-position ball-angle ball-dir ball-target toimpact]
   (let [{:keys [maxHeight maxWidth paddleWidth paddleHeight ballRadius]} conf
         opposite  [(- maxWidth ballRadius)
                    (if (neg? ball-angle) ballRadius (- maxHeight ballRadius))]
@@ -50,5 +50,3 @@
     ;(when (= ball-dir :left)
     ;  (println ball-angle ">" off-angle))
     (calc/approach-target conf paddle-position target)))
-
-; TODO strategies with movement etc
