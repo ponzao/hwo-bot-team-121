@@ -40,15 +40,15 @@
   [conf paddle-position ball-angle ball-dir ball-target toimpact]
   (let [{:keys [maxHeight maxWidth paddleWidth paddleHeight ballRadius]} conf
         opposite  [(- maxWidth ballRadius)
-                   (if (neg? ball-angle) ballRadius (- maxHeight ballRadius))]
+                   (if (neg? ball-angle) (- maxHeight ballRadius) ballRadius)]
         off-angle (calc/calculate-angle opposite
                                    [(+ paddleWidth ballRadius) ball-target])
         center    (- ball-target (/ paddleHeight 2))         
-        offset    (* (calc/constrain -1 1 (- off-angle ball-angle))         
+        offset    (* (calc/constrain -1 1 (* 2.5 (+ off-angle ball-angle)))         
                      (- (/ paddleHeight 2) ballRadius) )
         target   (case ball-dir 
-                   :left  (if (< toimpact 400) (+ center offset) center)
+                   :left  (- center offset)
                    :right (- (/ maxHeight 2) (/ paddleHeight 2)))]
-    ;(when (and (= ball-dir :left) (< toimpact 400))
+    ;(when (= ball-dir :left)
     ;  (println ball-angle ">" off-angle))
     (calc/approach-target conf paddle-position target)))
