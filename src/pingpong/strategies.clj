@@ -19,7 +19,7 @@
         offset (- (/ paddleHeight 2) ballRadius)
         target (case ball-dir
                  :left (if (> 400 toimpact) 
-                         (if (neg? ball-angle) maxHeight 0) 
+                         ((if (neg? ball-angle) - +) paddle-center offset) 
                          paddle-center)
                  :right area-center)]
     (calc/approach-target conf paddle-position target)))
