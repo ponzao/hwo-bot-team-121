@@ -18,7 +18,7 @@
         paddle-center (- ball-target (/ paddleHeight 2))
         offset (- (/ paddleHeight 2) ballRadius)
         target (case ball-dir
-                 :left (if (> 400 toimpact) 
+                 :left (if (< toimpact 400) 
                          ((if (neg? ball-angle) - +) paddle-center offset) 
                          paddle-center)
                  :right area-center)]
@@ -47,8 +47,8 @@
         offset    (* (calc/constrain -1 1 (- off-angle ball-angle))         
                      (- (/ paddleHeight 2) ballRadius) )
         target   (case ball-dir 
-                   :left  (+ center offset)
+                   :left  (if (< toimpact 400) (+ center offset) center)
                    :right (- (/ maxHeight 2) (/ paddleHeight 2)))]
-    ;(when (= ball-dir :left)
+    ;(when (and (= ball-dir :left) (< toimpact 400))
     ;  (println ball-angle ">" off-angle))
     (calc/approach-target conf paddle-position target)))

@@ -41,7 +41,7 @@
         [angle _ target] (calc/calculate-ball-target (:conf data) event1 event2)
         direction        (calc/ball-direction event1 event2)
         toimpact         (calc/time-left-to-hit-target direction (:conf data) event2 event1)
-        movement         (strategies/accelerating (:conf data) position angle direction target toimpact)]
+        movement         (strategies/corner (:conf data) position angle direction target toimpact)]
     movement))
 
 (defn time-diff [last-timestamp]
