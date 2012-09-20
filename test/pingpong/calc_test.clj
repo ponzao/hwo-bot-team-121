@@ -15,6 +15,18 @@
 (facts "calculate-x-at-y"
   (calculate-x-at-y 0 [0 1] 1) => 0)
 
+(facts "calculate ball target"
+  (fact "left movement"     
+    (let [p1 [615 15]
+          p2 [635 5]
+          [angle x y] (calculate-ball-target conf :left p1 p2)]
+      y => 315))
+  (fact "right movement"
+    (let [p1 [64 48]
+          p2 [0 0]
+          [angle x y] (calculate-ball-target conf :right p1 p2)]
+      y => 1875/4)))
+
 (facts "out-of-bounds"
   (out-of-bounds 100 120) => :over
   (out-of-bounds 100 -10) => :under)
@@ -24,7 +36,7 @@
   (ball-direction [2 0] [1 0]) => :right)
 
 (facts "ball target calculation"
-  (let [calc (partial calculate-ball-target conf)]
+  (let [calc (partial calculate-ball-target conf :left)]
     (calc [20 10] [30 20])   => [1    15 5]    ; top corner    
     (calc [20 460] [30 450]) => [-1   15 465]  ; bottom corner
     (calc [80 20] [90 40])   => [-2   15 120]  ; top reflection

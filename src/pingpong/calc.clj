@@ -36,10 +36,12 @@
                 speed (/ dist time)]
             (/ x2 speed))
     :right 100000000))
-
+  
 (defn calculate-ball-target
-  [{:keys [maxWidth maxHeight paddleHeight paddleWidth ballRadius]} p1 p2]
-  (let [x-at-paddle (+ paddleWidth ballRadius)
+  [{:keys [maxWidth maxHeight paddleWidth ballRadius]} side p1 p2]
+  (let [x-at-paddle (case side
+                      :left  (+ paddleWidth ballRadius)
+                      :right (- maxWidth paddleWidth ballRadius))
         height      (- maxHeight ballRadius)]
     (loop [angle (calculate-angle p1 p2)     
            point p2]

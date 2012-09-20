@@ -1,13 +1,25 @@
 (ns pingpong.strategies
   (require [pingpong.calc :as calc]))
 
+(defn- ball-moves-right
+  "Calculates optimal paddle movement when ball moves right"
+  [conf paddle-position ball-angle ball-target]
+  (let [{:keys [maxWidth paddleWidth ballRadius]} conf
+        start      [(- maxWidth paddleWidth ballRadius) ball-target]
+        back-angle (* -1 ball-angle)
+        step-x     (- (first start) ballRadius)
+        step-y     (calc/calculate-y-at-x back-angle start step-x)
+        back-y     (nth (calc/calculate-ball-target conf :left [step-x step-y] start) 2)]
+    back-y))
+        
 (defn basic
   "Hits ball at calculated position (paddle's center)."
   [conf paddle-position ball-angle ball-dir ball-target toimpact]
   (let [{:keys [maxHeight paddleHeight]} conf
         target (case ball-dir
                  :left  (- ball-target (/ paddleHeight 2))
-                 :right (- (/ maxHeight 2) (/ paddleHeight 2)))]
+                 :right (ball-moves-right conf paddle-position ball-angle ball-target))]
+                 ;:right (- (/ maxHeight 2) (/ paddleHeight 2)))]
     (calc/approach-target conf paddle-position target)))
 
 (defn accelerating
@@ -48,7 +60,6 @@
                      (- (/ paddleHeight 2) ballRadius) )
         target   (case ball-dir 
                    :left  (- center offset)
-                   :right (- (/ maxHeight 2) (/ paddleHeight 2)))]
-    ;(when (= ball-dir :left)
-    ;  (println ball-angle ">" off-angle))
+                   :right (ball-moves-right conf paddle-position ball-angle ball-target))]
+                   ;:right (- (/ maxHeight 2) (/ paddleHeight 2)))]
     (calc/approach-target conf paddle-position target)))

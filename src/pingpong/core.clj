@@ -38,8 +38,8 @@
 (defn calculate-move [data ball-events]
   (let [[event1 event2]  (take-ball-events ball-events) 
         position         (-> data :left :y)
-        [angle _ target] (calc/calculate-ball-target (:conf data) event1 event2)
         direction        (calc/ball-direction event1 event2)
+        [angle _ target] (calc/calculate-ball-target (:conf data) direction event1 event2)        
         toimpact         (calc/time-left-to-hit-target direction (:conf data) event2 event1)
         movement         (strategies/corner (:conf data) position angle direction target toimpact)]
     movement))
