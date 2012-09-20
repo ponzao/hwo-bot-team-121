@@ -21,7 +21,6 @@
                  :right area-center)]
     (calc/approach-target conf paddle-position target)))
 
-
 (defn zigzag
   "Hits ball with paddle's corner."
   [conf paddle-position ball-angle ball-dir ball-target toimpact]

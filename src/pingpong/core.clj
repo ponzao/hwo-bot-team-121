@@ -20,8 +20,12 @@
     (reset! last-timestamp (System/currentTimeMillis))
     (write! conn {:msgType "changeDir" :data direction})))
 
+(defn size-at-least?
+  [n coll]
+  (= n (count (take n coll))))
+
 (defn take-ball-events [[event1 event2 & _ :as events]]
-  (if (> (count events) 2)
+  (if (size-at-least? 3 events)
     (let [event3 (nth events 2)
           angle1 (Math/abs (calc/calculate-angle event1 event2))
           angle2 (Math/abs (calc/calculate-angle event2 event3))
