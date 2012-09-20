@@ -63,7 +63,8 @@
     :gameStarted (println (str "Game started: " (first data) " vs. " (second data)))
     :gameIsOn (make-move! conn data ball-events last-timestamp last-direction)
     :gameIsOver (do (println (str "Game ended. Winner: " data))
-                    (reset! ball-events ()))
+                    (reset! ball-events ())
+                    (reset! last-direction nil))
     :error (println "error: " data)
     :pass))
 
