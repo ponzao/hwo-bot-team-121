@@ -8,6 +8,13 @@
            [java.io PrintWriter InputStreamReader BufferedReader])
   (:gen-class :main true))
 
+(defn defaults
+  []
+  {:winners []
+   :events ()
+   :direction nil
+   :timestamp (System/currentTimeMillis)})
+
 (defn write!
   "Writes data into conn's output."
   [conn data]
@@ -19,11 +26,9 @@
   "Attempts to move paddle. If direction is same as
    last direction does nothing. Resets last-direction
    and last-timestamp upon move."
-  [conn direction last-direction last-timestamp]
-  (when-not (= direction @last-direction)
-    (reset! last-direction direction)
-    (reset! last-timestamp (System/currentTimeMillis))
-    (write! conn {:msgType "changeDir" :data direction})))
+  [conn direction]
+  (write! conn {:msgType "changeDir" :data direction})
+  direction)
 
 (defn size-at-least?
   "Returns true if collection is at least given size."
@@ -70,30 +75,38 @@
    there is not enough data available."
   [conn {{{ball-x :x ball-y :y} :pos} :ball
          {paddle-y :y} :left :as data}
-   strategy ball-events last-timestamp last-direction]
-  (swap! ball-events conj [ball-x ball-y (:time data)])
-  (when (and (react? @last-timestamp) (first @ball-events) (second @ball-events))
-    (move-paddle! conn (calculate-move data strategy @ball-events) last-direction last-timestamp)))
+   strategy ball-events timestamp old-direction]
+  (let [[ev1 ev2 :as events] (conj ball-events [ball-x ball-y (:time data)])]
+    (merge {:events events
+            :timestamp timestamp
+            :direction old-direction}
+     (when (and (react? timestamp) ev1 ev2)
+       (let [new-direction (calculate-move data strategy events)]
+         (when (not= new-direction old-direction)
+           {:direction (move-paddle! conn new-direction)
+            :timestamp (System/currentTimeMillis)}))))))
 
 (defn game-over!
   "Resets game state, updates winner and prints
    results."
-  [data winners ball-events last-direction]
+  [data winners]
   (println (str "Game ended. Winner: " data))
-  (swap! winners conj data)
-  (println (frequencies @winners))
-  (reset! ball-events ())
-  (reset! last-direction nil))
+  (println (frequencies winners))
+  (-> (defaults)
+      (update-in [winners] conj data)))
 
 (defn handle-message!
   "Dispatches based on message."
   [conn strategy {msg-type :msgType data :data}
    ball-events winners last-timestamp last-direction]
   (case msg-type
-    :joined (println (str "Game joined successfully. Use following URL for visualization: " data))
-    :gameStarted (println (str "Game started: " (first data) " vs. " (second data)))
-    :gameIsOn (make-move! conn data strategy ball-events last-timestamp last-direction)
-    :gameIsOver (game-over! data winners ball-events last-direction)
+    :joined (do (println (str "Game joined successfully. Use following URL for visualization: " data))
+                (defaults))
+    :gameStarted (do (println (str "Game started: " (first data) " vs. " (second data)))
+                     (defaults))
+    :gameIsOn (do (assoc (make-move! conn data strategy ball-events last-timestamp last-direction)
+                    :winners winners))
+    :gameIsOver (game-over! data winners)
     :error (println "error: " data)
     :pass))
 
@@ -126,15 +139,12 @@
 (defn conn-handler [conn strategy]
   "Initiates game state. Iterates through
    input and reacts if necessary."
-  (let [winners (atom [])
-        ball-events (atom ())
-        last-direction (atom nil)
-        last-timestamp (atom (System/currentTimeMillis))]
-    (do (doseq [msg (game-data-seq conn)]
-          (handle-message! conn strategy (parse-message msg)
-                           ball-events winners
-                           last-timestamp last-direction))
-        (stop conn))))
+  (do (reduce (fn [{:keys [winners events direction timestamp]} message]
+                (handle-message! conn strategy (parse-message message)
+                                 events winners timestamp direction))
+              defaults
+              (game-data-seq conn))
+      (stop conn)))
 
 (defn connect [server]
   "Wraps servers input and output into
