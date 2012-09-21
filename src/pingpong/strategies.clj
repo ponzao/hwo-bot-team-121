@@ -2,7 +2,7 @@
   (require [pingpong.calc :as calc]))
 
 (defn- ball-moves-right
-  "Calculates optimal paddle movement when ball moves right"
+  "Calculates optimal paddle movement when ball moves right."
   [conf position ball-angle ball-target]
   (let [{:keys [maxWidth paddleWidth ballRadius]} conf
         start      [(- maxWidth paddleWidth ballRadius) ball-target]
