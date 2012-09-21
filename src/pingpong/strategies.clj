@@ -17,7 +17,6 @@
   [conf position ball-angle ball-dir ball-target toimpact]
   (let [{:keys [maxHeight paddleHeight]} conf
         target (- ball-target (/ paddleHeight 2))]
-                 ;:right (- (/ maxHeight 2) (/ paddleHeight 2)))]
     target))
 
 (defn accelerating
@@ -30,7 +29,6 @@
         target (if (< toimpact 400) 
                  ((if (neg? ball-angle) - +) paddle-center offset) 
                  paddle-center)]
-                 ;:right area-center)]
     target))
 
 (defn zigzag
@@ -54,7 +52,6 @@
         offset    (* (calc/constrain -1 1 (* 2.5 (+ off-angle ball-angle)))         
                      (- (/ paddleHeight 2) ballRadius) )
         target   (- center offset)]
-                 ;:left (if (< toimpact 400) (- center offset) center)]
     target))
 
 (defn anti-corner
