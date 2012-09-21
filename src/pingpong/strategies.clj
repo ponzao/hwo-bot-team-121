@@ -68,9 +68,11 @@
   [conf position ball-angle ball-dir ball-target toimpact]
   (let [{:keys [maxHeight paddleHeight ballRadius]} conf
         segment  (calc/get-segment position maxHeight)  
-        strategy (cond
-                   (= segment 2) corner
-                   :else anti-corner)]
+        strategy (if (< (Math/abs ball-angle) 0.1)
+                   anti-corner
+                   (cond
+                     (= segment 2) corner
+                     :else anti-corner))]
     (strategy conf position ball-angle ball-dir ball-target toimpact)))
 
 (defn create-strategy [strategy]
