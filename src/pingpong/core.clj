@@ -8,13 +8,6 @@
            [java.io PrintWriter InputStreamReader BufferedReader])
   (:gen-class :main true))
 
-(defn defaults
-  []
-  {:winners []
-   :events ()
-   :direction nil
-   :timestamp (System/currentTimeMillis)})
-
 (defn write!
   "Writes data into conn's output."
   [conn data]
@@ -23,12 +16,13 @@
     (.flush)))
 
 (defn move-paddle!
-  "Attempts to move paddle. If direction is same as
-   last direction does nothing. Resets last-direction
-   and last-timestamp upon move."
-  [conn direction]
-  (write! conn {:msgType "changeDir" :data direction})
-  direction)
+  "Attempts to move paddle. If direction is same as last direction 
+   does nothing. Resets last-direction and last-timestamp upon move."
+  [conn direction last-direction last-timestamp]
+  (when-not (= direction @last-direction)
+    (reset! last-direction direction)
+    (reset! last-timestamp (System/currentTimeMillis))
+    (write! conn {:msgType "changeDir" :data direction})))
 
 (defn size-at-least?
   "Returns true if collection is at least given size."
@@ -36,8 +30,8 @@
   (= n (count (take n coll))))
 
 (defn take-ball-events
-  "Returns a vector of two ball events that should
-   be used for calculating ball target."
+  "Returns a vector of two ball events that should be used for  
+   calculating ball target."
   [[event1 event2 & _ :as events]]
   (if (size-at-least? 3 events)
     (let [event3 (nth events 2)
@@ -50,8 +44,7 @@
     [event1 event2]))
 
 (defn calculate-move
-  "Calculates move speed based on data, ball events
-   and strategy."
+  "Calculates move speed based on data, ball events and strategy."
   [data strategy ball-events]
   (let [[event1 event2]  (take-ball-events ball-events) 
         position         (-> data :left :y)
@@ -63,56 +56,45 @@
     movement))
 
 (defn react? [last-timestamp]
-  "Checks if given time is within the hardcoded
-   time threshold."
+  "Checks if given time is within the hardcoded time threshold."
   (let [current (System/currentTimeMillis)
         old last-timestamp]
     (> (- current old) 100)))
 
 (defn make-move!
-  "Moves paddle based on given data. Takes into account
-   throttled response rate and doesn't make a move if
-   there is not enough data available."
+  "Moves paddle based on given data. Takes into account throttled 
+   response rate and doesn't make a move if there is not enough 
+   data available."
   [conn {{{ball-x :x ball-y :y} :pos} :ball
          {paddle-y :y} :left :as data}
-   strategy ball-events timestamp old-direction]
-  (let [[ev1 ev2 :as events] (conj ball-events [ball-x ball-y (:time data)])]
-    (merge {:events events
-            :timestamp timestamp
-            :direction old-direction}
-     (when (and (react? timestamp) ev1 ev2)
-       (let [new-direction (calculate-move data strategy events)]
-         (when (not= new-direction old-direction)
-           {:direction (move-paddle! conn new-direction)
-            :timestamp (System/currentTimeMillis)}))))))
+   strategy ball-events last-timestamp last-direction]
+  (swap! ball-events conj [ball-x ball-y (:time data)])
+  (when (and (react? @last-timestamp) (first @ball-events) (second @ball-events))
+    (move-paddle! conn (calculate-move data strategy @ball-events) last-direction last-timestamp)))
 
 (defn game-over!
-  "Resets game state, updates winner and prints
-   results."
-  [data winners]
+  "Resets game state, updates winner and prints results."
+  [data winners ball-events last-direction]
   (println (str "Game ended. Winner: " data))
-  (println (frequencies winners))
-  (-> (defaults)
-      (update-in [winners] conj data)))
+  (swap! winners conj data)
+  (println (frequencies @winners))
+  (reset! ball-events ())
+  (reset! last-direction nil))
 
 (defn handle-message!
   "Dispatches based on message."
   [conn strategy {msg-type :msgType data :data}
    ball-events winners last-timestamp last-direction]
   (case msg-type
-    :joined (do (println (str "Game joined successfully. Use following URL for visualization: " data))
-                (defaults))
-    :gameStarted (do (println (str "Game started: " (first data) " vs. " (second data)))
-                     (defaults))
-    :gameIsOn (do (assoc (make-move! conn data strategy ball-events last-timestamp last-direction)
-                    :winners winners))
-    :gameIsOver (game-over! data winners)
+    :joined (println (str "Game joined successfully. Use following URL for visualization: " data))
+    :gameStarted (println (str "Game started: " (first data) " vs. " (second data)))
+    :gameIsOn (make-move! conn data strategy ball-events last-timestamp last-direction)
+    :gameIsOver (game-over! data winners ball-events last-direction)
     :error (println "error: " data)
     :pass))
 
 (defn parse-message
-  "Parses JSON structure into a Clojure
-   map."
+  "Parses JSON structure into a Clojure map."
   [data]
   (try
     (update-in (read-json data true) [:msgType] keyword)
@@ -131,24 +113,24 @@
 (def not-nil? (complement nil?))
 
 (defn game-data-seq
-  "Creates a sequence of messages from the
-   input stream."
+  "Creates a sequence of messages from the input stream."
   [conn]
   (take-while not-nil? (repeatedly #(read-msg conn))))
 
 (defn conn-handler [conn strategy]
-  "Initiates game state. Iterates through
-   input and reacts if necessary."
-  (do (reduce (fn [{:keys [winners events direction timestamp]} message]
-                (handle-message! conn strategy (parse-message message)
-                                 events winners timestamp direction))
-              defaults
-              (game-data-seq conn))
-      (stop conn)))
+  "Initiates game state. Iterates through input and reacts if necessary."
+  (let [winners (atom [])
+        ball-events (atom ())
+        last-direction (atom nil)
+        last-timestamp (atom (System/currentTimeMillis))]
+    (do (doseq [msg (game-data-seq conn)]
+          (handle-message! conn strategy (parse-message msg)
+                           ball-events winners
+                           last-timestamp last-direction))
+        (stop conn))))
 
 (defn connect [server]
-  "Wraps servers input and output into
-   a map."
+  "Wraps servers input and output into a map."
   (let [socket (Socket. (:name server) (:port server))
         in (BufferedReader. (InputStreamReader. (.getInputStream socket)))
         out (PrintWriter. (.getOutputStream socket))]
