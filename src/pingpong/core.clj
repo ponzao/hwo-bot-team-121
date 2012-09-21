@@ -103,7 +103,7 @@
     :joined (do (println (str "Game joined successfully. Use following URL for visualization: " data))
                 (defaults))
     :gameStarted (do (println (str "Game started: " (first data) " vs. " (second data)))
-                     (defaults))
+                     (assoc (defaults) :winners winners))
     :gameIsOn (do (assoc (make-move! conn data strategy ball-events last-timestamp last-direction)
                     :winners winners))
     :gameIsOver (game-over! data winners)
