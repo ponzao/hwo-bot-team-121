@@ -67,12 +67,12 @@
   "Combines multiple strategies"
   [conf position ball-angle ball-dir ball-target toimpact]
   (let [{:keys [maxHeight paddleHeight ballRadius]} conf
-        segment  (calc/get-segment position maxHeight)  
-        strategy (if (< (Math/abs ball-angle) 0.1)
-                   anti-corner
-                   (cond
-                     (= segment 2) corner
-                     :else anti-corner))]
+        center-pos (or (> position (* maxHeight 0.1))
+                       (< position (* maxHeight 0.9)))
+        small-angle (< (Math/abs ball-angle) 0.1)
+        strategy (if small-angle
+                   (if center-pos anti-corner accelerating)
+                   (if center-pos corner anti-corner))]
     (strategy conf position ball-angle ball-dir ball-target toimpact)))
 
 (defn create-strategy [strategy]
