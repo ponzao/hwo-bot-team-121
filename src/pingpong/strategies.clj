@@ -3,7 +3,7 @@
 
 (defn- ball-moves-right
   "Calculates optimal paddle movement when ball moves right"
-  [conf position ball-angle ball-target]
+  [conf position ball-angle ball-dir ball-target toimpact]
   (let [{:keys [maxWidth paddleWidth ballRadius]} conf
         start      [(- maxWidth paddleWidth ballRadius) ball-target]
         back-angle (* -1 ball-angle)
@@ -16,11 +16,9 @@
   "Hits ball at calculated position (paddle's center)."
   [conf position ball-angle ball-dir ball-target toimpact]
   (let [{:keys [maxHeight paddleHeight]} conf
-        target (case ball-dir
-                 :left  (- ball-target (/ paddleHeight 2))
-                 :right (ball-moves-right conf position ball-angle ball-target))]
+        target (- ball-target (/ paddleHeight 2))]
                  ;:right (- (/ maxHeight 2) (/ paddleHeight 2)))]
-    (calc/approach-target conf position target)))
+    target))
 
 (defn accelerating
   "Moves the paddle just before hitting."
@@ -29,13 +27,11 @@
         area-center (- (/ maxHeight 2) (/ paddleHeight 2))
         paddle-center (- ball-target (/ paddleHeight 2))
         offset (- (/ paddleHeight 2) ballRadius)
-        target (case ball-dir
-                 :left (if (< toimpact 400) 
-                         ((if (neg? ball-angle) - +) paddle-center offset) 
-                         paddle-center)
-                 :right (ball-moves-right conf position ball-angle ball-target))]
+        target (if (< toimpact 400) 
+                 ((if (neg? ball-angle) - +) paddle-center offset) 
+                 paddle-center)]
                  ;:right area-center)]
-    (calc/approach-target conf position target)))
+    target))
 
 (defn zigzag
   "Hits ball with paddle's corner."
@@ -43,11 +39,8 @@
   (let [{:keys [maxHeight paddleHeight ballRadius]} conf
         offset (if (neg? ball-angle) (- ballRadius paddleHeight)
                                      (* -1 ballRadius)) 
-        target (case ball-dir 
-                 :left  (+ ball-target offset)
-                 :right (ball-moves-right conf position ball-angle ball-target))]
-                 ;:right (- (/ maxHeight 2) (/ paddleHeight 2)))]
-    (calc/approach-target conf position target)))
+        target (+ ball-target offset)]
+    target))
 
 (defn corner
   "Hits ball into corners."
@@ -60,12 +53,9 @@
         center    (- ball-target (/ paddleHeight 2))         
         offset    (* (calc/constrain -1 1 (* 2.5 (+ off-angle ball-angle)))         
                      (- (/ paddleHeight 2) ballRadius) )
-        target   (case ball-dir
-                   :left  (- center offset)
-                   ;:left (if (< toimpact 400) (- center offset) center)
-                   :right (ball-moves-right conf position ball-angle ball-target))]
-                   ;:right (- (/ maxHeight 2) (/ paddleHeight 2)))]
-    (calc/approach-target conf position target)))
+        target   (- center offset)]
+                 ;:left (if (< toimpact 400) (- center offset) center)]
+    target))
 
 (defn anti-corner
   "Opposite action of zigzag. Good strategy against corner."
@@ -73,11 +63,8 @@
   (let [{:keys [maxHeight paddleHeight ballRadius]} conf
         offset (if (pos? ball-angle) (- ballRadius paddleHeight)
                                      (* -1 ballRadius)) 
-        target (case ball-dir 
-                 :left  (+ ball-target offset)
-                 :right (ball-moves-right conf position ball-angle ball-target))]
-                 ;:right (- (/ maxHeight 2) (/ paddleHeight 2)))]
-    (calc/approach-target conf position target)))
+        target (+ ball-target offset)]
+    target))
 
 ; deprecated, improve corner strategy instead
 (defn combo
@@ -87,3 +74,16 @@
                    accelerating 
                    corner)]
     (strategy conf position ball-angle ball-dir ball-target toimpact)))
+
+(defn create-strategy [strategy]
+  (fn [& [conf position ball-angle ball-dir & _ :as args]]
+    (let [target (case ball-dir
+                   :left  (apply strategy args)
+                   :right (apply ball-moves-right args))]
+      (calc/approach-target conf position target))))
+
+(def all 
+  (->> [:basic :accelerating :zigzag :corner :anti-corner :combo]
+       (map #(vector % (-> % name symbol resolve create-strategy)))
+       (into {})))     
+   
