@@ -153,7 +153,7 @@
   (let [conn (connect {:name "boris.helloworldopen.fi" :port 9090})
         join-message {:msgType "requestDuel" :data [team1 team2]}]
     (write! conn join-message)
-    (.start (Thread. #(conn-handler conn (or strategy :corner)))))))
+    (.start (Thread. #(conn-handler conn (or strategy :combo)))))))
 
 (comment
 (use '[incanter core stats charts])
@@ -173,3 +173,7 @@
               (set-y-range 0 480)
               (add-points left-x left-y)
               (add-points right-x right-y)))))))
+
+;logging
+;shell scripts
+;testing on virtual machine
