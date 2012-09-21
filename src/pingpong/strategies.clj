@@ -62,6 +62,7 @@
                      (- (/ paddleHeight 2) ballRadius) )
         target   (case ball-dir 
                    :left  (- center offset)
+                   ;:left (if (< toimpact 400) (- center offset) center)
                    :right (ball-moves-right conf position ball-angle ball-target))]
                    ;:right (- (/ maxHeight 2) (/ paddleHeight 2)))]
     (calc/approach-target conf position target)))
@@ -78,6 +79,7 @@
                  ;:right (- (/ maxHeight 2) (/ paddleHeight 2)))]
     (calc/approach-target conf position target)))
 
+; deprecated, improve corner strategy instead
 (defn combo
   "Uses accelerating for small ball angles and corner for bigger ones"
   [conf position ball-angle ball-dir ball-target toimpact]
