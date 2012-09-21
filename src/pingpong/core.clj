@@ -148,7 +148,7 @@
   (let [conn (connect {:name hostname :port (read-string port)})
         join-message {:msgType "join" :data team-name}]
     (write! conn join-message)
-    (.start (Thread. #(conn-handler conn :corner)))))
+    (.start (Thread. #(conn-handler conn :combo)))))
 
 (defn start
   "Initiates a game on test server."
@@ -161,8 +161,7 @@
   (let [conn (connect {:name "boris.helloworldopen.fi" :port 9090})
         join-message {:msgType "requestDuel" :data [team1 team2]}]
     (write! conn join-message)
-    (.start (Thread. #(conn-handler conn (or strategy
-                                             :corner)))))))
+    (.start (Thread. #(conn-handler conn (or strategy :corner)))))))
 
 (comment
 (use '[incanter core stats charts])

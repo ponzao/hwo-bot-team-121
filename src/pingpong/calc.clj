@@ -76,12 +76,6 @@
   [[x1 _] [x2 _]]
   (if (< x1 x2) :left :right))
 
-(defn get-segment [position maxHeight]
-  ; TODO: Document!
-  (cond (< position (* 0.2 maxHeight))  1
-        (< position (* 0.8 maxHeight))  2
-        :else 3))
-
 (defn approach-target
   ;TODO: Document!
   [{:keys [maxHeight paddleHeight] :as conf} position target]
