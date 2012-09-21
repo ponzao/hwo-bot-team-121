@@ -157,12 +157,12 @@
 
 (defn start-duel
   "Starts duel between two players"
-  [team1 team2 strategy]
+  ([team1 team2 strategy]
   (let [conn (connect {:name "boris.helloworldopen.fi" :port 9090})
         join-message {:msgType "requestDuel" :data [team1 team2]}]
     (write! conn join-message)
     (.start (Thread. #(conn-handler conn (or strategy
-                                             :corner))))))
+                                             :corner)))))))
 
 (comment
 (use '[incanter core stats charts])

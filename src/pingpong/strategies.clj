@@ -63,13 +63,14 @@
         target (+ ball-target offset)]
     target))
 
-; deprecated, improve corner strategy instead
 (defn combo
-  "Uses accelerating for small ball angles and corner for bigger ones"
+  "Combines multiple strategies"
   [conf position ball-angle ball-dir ball-target toimpact]
-  (let [strategy (if (< (Math/abs ball-angle) 0.2) 
-                   accelerating 
-                   corner)]
+  (let [{:keys [maxHeight paddleHeight ballRadius]} conf
+        segment  (calc/get-segment position maxHeight)  
+        strategy (cond
+                   (= segment 2) corner
+                   :else anti-corner)]
     (strategy conf position ball-angle ball-dir ball-target toimpact)))
 
 (defn create-strategy [strategy]
