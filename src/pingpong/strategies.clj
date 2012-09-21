@@ -60,7 +60,7 @@
         center    (- ball-target (/ paddleHeight 2))         
         offset    (* (calc/constrain -1 1 (* 2.5 (+ off-angle ball-angle)))         
                      (- (/ paddleHeight 2) ballRadius) )
-        target   (case ball-dir 
+        target   (case ball-dir
                    :left  (- center offset)
                    ;:left (if (< toimpact 400) (- center offset) center)
                    :right (ball-moves-right conf position ball-angle ball-target))]
