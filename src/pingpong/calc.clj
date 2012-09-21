@@ -28,7 +28,7 @@
           :else     x))
   ([max x] (constrain 0 max x)))
 
-(defn time-left-to-hit-target
+(defn time-to-target
   [direction {:keys [maxWidth paddleWidth]} [x1 y1 t1] [x2 y2 t2]]
   (case direction 
     :left (let [dist (- x1 x2)
