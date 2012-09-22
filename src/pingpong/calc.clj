@@ -36,7 +36,7 @@
 (defn time-to-target
   ;TODO: Document!
   [direction {:keys [maxWidth paddleWidth]}
-   [x1 y1 t1] [x2 y2 t2]]
+   [x1 _ t1] [x2 _ t2]]
   (case direction 
     :left (let [dist (- x1 x2)
                 time (- t2 t1)

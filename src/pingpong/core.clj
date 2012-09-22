@@ -50,7 +50,7 @@
         position         (-> data :left :y)
         direction        (calc/ball-direction event1 event2)
         [angle _ target] (calc/calculate-ball-target (:conf data) direction event1 event2)        
-        impact-time      (calc/time-to-target direction (:conf data) event2 event1)
+        impact-time      nil ;(calc/time-to-target direction (:conf data) event2 event1)
         strategy-fn      (strategies/all strategy)
         movement         (strategy-fn (:conf data) position angle direction target impact-time)]
     movement))
