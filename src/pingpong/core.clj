@@ -77,38 +77,32 @@
          {paddle-y :y} :left :as data}
    strategy ball-events timestamp old-direction]
   (let [[ev1 ev2 :as events] (conj ball-events [ball-x ball-y (:time data)])]
-    (merge {:events events
-            :timestamp timestamp
-            :direction old-direction}
-     (when (and (react? timestamp) ev1 ev2)
-       (let [new-direction (calculate-move data strategy events)]
-         (when (not= new-direction old-direction)
-           {:direction (move-paddle! conn new-direction)
-            :timestamp (System/currentTimeMillis)}))))))
+    (merge {:events events}
+           (when (and (react? timestamp) ev1 ev2)
+             (let [new-direction (calculate-move data strategy events)]
+               (when-not (= new-direction old-direction)
+                 {:direction (move-paddle! conn new-direction)
+                  :timestamp (System/currentTimeMillis)}))))))
 
 (defn game-over!
   "Resets game state, updates winner and prints
    results."
   [data winners]
   (println (str "Game ended. Winner: " data))
-  (println (frequencies winners))
-  (-> (defaults)
-      (update-in [winners] conj data)))
+  (let [new-winners (conj winners data)]
+    (println (frequencies new-winners))
+    (assoc (defaults) :winners new-winners)))
 
 (defn handle-message!
   "Dispatches based on message."
   [conn strategy {msg-type :msgType data :data}
    ball-events winners last-timestamp last-direction]
   (case msg-type
-    :joined (do (println (str "Game joined successfully. Use following URL for visualization: " data))
-                (defaults))
-    :gameStarted (do (println (str "Game started: " (first data) " vs. " (second data)))
-                     (assoc (defaults) :winners winners))
-    :gameIsOn (do (assoc (make-move! conn data strategy ball-events last-timestamp last-direction)
-                    :winners winners))
+    :joined (println (str "Game joined successfully. Use following URL for visualization: " data))
+    :gameStarted (println (str "Game started: " (first data) " vs. " (second data)))
+    :gameIsOn (make-move! conn data strategy ball-events last-timestamp last-direction)
     :gameIsOver (game-over! data winners)
-    :error (println "error: " data)
-    :pass))
+    :error (println "error: " data)))
 
 (defn parse-message
   "Parses JSON structure into a Clojure
@@ -139,10 +133,11 @@
 (defn conn-handler [conn strategy]
   "Initiates game state. Iterates through
    input and reacts if necessary."
-  (do (reduce (fn [{:keys [winners events direction timestamp]} message]
-                (handle-message! conn strategy (parse-message message)
-                                 events winners timestamp direction))
-              defaults
+  (do (reduce (fn [{:keys [winners events direction timestamp] :as state} message]
+                (merge state
+                       (handle-message! conn strategy (parse-message message)
+                                        events winners timestamp direction)))
+              (defaults)
               (game-data-seq conn))
       (stop conn)))
 
