@@ -120,8 +120,9 @@
   [conn]
   (take-while not-nil? (repeatedly #(read-msg conn))))
 
-(defn conn-handler [conn strategy]
+(defn conn-handler
   "Initiates game state. Iterates through input and reacts if necessary."
+  [conn strategy]
   (let [winners (atom [])
         ball-events (atom ())
         game-data (atom ())
@@ -133,14 +134,16 @@
                            last-timestamp last-direction))
         (stop conn))))
 
-(defn connect [server]
+(defn connect
   "Wraps servers input and output into a map."
+  [server]
   (let [socket (Socket. (:name server) (:port server))
         in (BufferedReader. (InputStreamReader. (.getInputStream socket)))
         out (PrintWriter. (.getOutputStream socket))]
     {:in in :out out}))
 
-(defn -main [team-name hostname port]
+(defn -main
+  [team-name hostname port]
   (let [conn (connect {:name hostname :port (read-string port)})
         join-message {:msgType "join" :data team-name}]
     (.mkdir (File. "log"))
@@ -163,20 +166,19 @@
 (comment
 (use '[incanter core stats charts])
 
-(defn view-games
-  [games]
-  (doseq [game games]
-    (let [pos (comp :pos :ball)
-          ball-x (map (comp :x pos) game)
-          ball-y (map (comp :y pos) game)
-          left-x (iterate (partial + 0.2) 0)
-          left-y (map (comp :y :left) game)
-          right-x (iterate #(- % 0.2) 640)
-          right-y (map (comp :y :right) game)]
-      (view (doto (scatter-plot ball-x ball-y)
-              (set-x-range 0 640)
-              (set-y-range 0 480)
-              (add-points left-x left-y)
-              (add-points right-x right-y)))))))
+(defn view-game
+  [game]
+  (let [pos (comp :pos :ball)
+        ball-x (map (comp :x pos) game)
+        ball-y (map (comp :y pos) game)
+        left-x (iterate (partial + 0.2) 0)
+        left-y (map (comp :y :left) game)
+        right-x (iterate #(- % 0.2) 640)
+        right-y (map (comp :y :right) game)]
+    (view (doto (scatter-plot ball-x ball-y)
+            (set-x-range 0 640)
+            (set-y-range 0 480)
+            (add-points left-x left-y)
+            (add-points right-x right-y))))))
 
 ;testing on virtual machine
