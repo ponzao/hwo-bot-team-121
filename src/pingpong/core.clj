@@ -5,7 +5,7 @@
   (:require [pingpong.calc :as calc]
             [pingpong.strategies :as strategies])
   (:import [java.net Socket]
-           [java.io PrintWriter InputStreamReader BufferedReader])
+           [java.io File PrintWriter InputStreamReader BufferedReader])
   (:gen-class :main true))
 
 (defn write!
@@ -74,22 +74,25 @@
 
 (defn game-over!
   "Resets game state, updates winner and prints results."
-  [data winners ball-events last-direction]
+  [data winners ball-events game-data last-direction]
   (println (str "Game ended. Winner: " data))
+  (spit (str "log/" (System/currentTimeMillis) ".clj") @game-data)
   (swap! winners conj data)
   (println (frequencies @winners))
   (reset! ball-events ())
+  (reset! game-data ())
   (reset! last-direction nil))
 
 (defn handle-message!
   "Dispatches based on message."
   [conn strategy {msg-type :msgType data :data}
-   ball-events winners last-timestamp last-direction]
+   ball-events game-data winners last-timestamp last-direction]
+  (swap! game-data conj data)
   (case msg-type
     :joined (println (str "Game joined successfully. Use following URL for visualization: " data))
     :gameStarted (println (str "Game started: " (first data) " vs. " (second data)))
     :gameIsOn (make-move! conn data strategy ball-events last-timestamp last-direction)
-    :gameIsOver (game-over! data winners ball-events last-direction)
+    :gameIsOver (game-over! data winners ball-events game-data last-direction)
     :error (println "error: " data)
     :pass))
 
@@ -121,11 +124,12 @@
   "Initiates game state. Iterates through input and reacts if necessary."
   (let [winners (atom [])
         ball-events (atom ())
+        game-data (atom ())
         last-direction (atom nil)
         last-timestamp (atom (System/currentTimeMillis))]
     (do (doseq [msg (game-data-seq conn)]
           (handle-message! conn strategy (parse-message msg)
-                           ball-events winners
+                           ball-events game-data winners
                            last-timestamp last-direction))
         (stop conn))))
 
@@ -139,6 +143,7 @@
 (defn -main [team-name hostname port]
   (let [conn (connect {:name hostname :port (read-string port)})
         join-message {:msgType "join" :data team-name}]
+    (.mkdir (File. "log"))
     (write! conn join-message)
     (.start (Thread. #(conn-handler conn :combo)))))
 
@@ -153,7 +158,7 @@
   (let [conn (connect {:name "boris.helloworldopen.fi" :port 9090})
         join-message {:msgType "requestDuel" :data [team1 team2]}]
     (write! conn join-message)
-    (.start (Thread. #(conn-handler conn (or strategy :corner)))))))
+    (.start (Thread. #(conn-handler conn (or strategy :combo)))))))
 
 (comment
 (use '[incanter core stats charts])
@@ -173,3 +178,6 @@
               (set-y-range 0 480)
               (add-points left-x left-y)
               (add-points right-x right-y)))))))
+
+;shell scripts
+;testing on virtual machine
