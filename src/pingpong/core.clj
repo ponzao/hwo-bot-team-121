@@ -62,21 +62,20 @@
         movement         (strategy-fn (:conf data) position angle direction target impact-time)]
     movement))
 
-(defn react? [last-timestamp]
+(defn react? [timestamp]
   "Checks if given time is within the hardcoded
    time threshold."
-  (let [current (System/currentTimeMillis)
-        old last-timestamp]
-    (> (- current old) 100)))
+  (let [current (System/currentTimeMillis)]
+    (> (- current timestamp) 100)))
 
 (defn make-move!
   "Moves paddle based on given data. Takes into account
    throttled response rate and doesn't make a move if
    there is not enough data available."
-  [conn {{{ball-x :x ball-y :y} :pos} :ball
-         {paddle-y :y} :left :as data}
-   strategy ball-events timestamp old-direction]
-  (let [[ev1 ev2 :as events] (conj ball-events [ball-x ball-y (:time data)])]
+  [conn data strategy ball-events timestamp old-direction]
+  (let [[ev1 ev2 :as events] (cons ((juxt #(get-in % [:ball :pos :x])
+                                          #(get-in % [:ball :pos :y])
+                                          :time) data) ball-events)]
     (merge {:events events}
            (when (and (react? timestamp) ev1 ev2)
              (let [new-direction (calculate-move data strategy events)]
@@ -130,20 +129,24 @@
   [conn]
   (take-while not-nil? (repeatedly #(read-msg conn))))
 
-(defn conn-handler [conn strategy]
+(defn conn-handler
   "Initiates game state. Iterates through
    input and reacts if necessary."
-  (do (reduce (fn [{:keys [winners events direction timestamp] :as state} message]
-                (merge state
-                       (handle-message! conn strategy (parse-message message)
-                                        events winners timestamp direction)))
-              (defaults)
-              (game-data-seq conn))
-      (stop conn)))
+  [conn strategy]
+  (loop [messages (game-data-seq conn)
+         {:keys [winners events direction timestamp] :as state} (defaults)]
+    (recur
+     (rest messages)
+     (merge state
+            (handle-message! conn strategy (parse-message (first messages))
+                             events winners timestamp direction))))
+  (stop conn))
 
-(defn connect [server]
+
+(defn connect
   "Wraps servers input and output into
    a map."
+  [server]
   (let [socket (Socket. (:name server) (:port server))
         in (BufferedReader. (InputStreamReader. (.getInputStream socket)))
         out (PrintWriter. (.getOutputStream socket))]
