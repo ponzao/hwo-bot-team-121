@@ -71,7 +71,7 @@
                        (< ball-target (* maxHeight 0.9)))
         small-angle (< (Math/abs ball-angle) 0.1)
         strategy (if small-angle
-                   (if center-pos anti-corner zigzag)
+                   (if center-pos anti-corner anti-corner)
                    (if center-pos corner anti-corner))]
     (strategy conf position ball-angle ball-dir ball-target toimpact)))
 

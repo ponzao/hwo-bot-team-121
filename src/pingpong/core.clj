@@ -5,15 +5,8 @@
   (:require [pingpong.calc :as calc]
             [pingpong.strategies :as strategies])
   (:import [java.net Socket]
-           [java.io PrintWriter InputStreamReader BufferedReader])
+           [java.io File PrintWriter InputStreamReader BufferedReader])
   (:gen-class :main true))
-
-(defn defaults
-  []
-  {:winners []
-   :events ()
-   :direction nil
-   :timestamp (System/currentTimeMillis)})
 
 (defn write!
   "Writes data into conn's output."
@@ -23,9 +16,8 @@
     (.flush)))
 
 (defn move-paddle!
-  "Attempts to move paddle. If direction is same as
-   last direction does nothing. Resets last-direction
-   and last-timestamp upon move."
+  "Attempts to move paddle. If direction is same as last direction 
+   does nothing. Resets last-direction and last-timestamp upon move."
   [conn direction]
   (write! conn {:msgType "changeDir" :data direction})
   direction)
@@ -36,8 +28,8 @@
   (= n (count (take n coll))))
 
 (defn take-ball-events
-  "Returns a vector of two ball events that should
-   be used for calculating ball target."
+  "Returns a vector of two ball events that should be used for  
+   calculating ball target."
   [[event1 event2 & _ :as events]]
   (if (size-at-least? 3 events)
     (let [event3 (nth events 2)
@@ -50,8 +42,7 @@
     [event1 event2]))
 
 (defn calculate-move
-  "Calculates move speed based on data, ball events
-   and strategy."
+  "Calculates move speed based on data, ball events and strategy."
   [data strategy ball-events]
   (let [[event1 event2]  (take-ball-events ball-events) 
         position         (-> data :left :y)
@@ -83,11 +74,19 @@
                  {:direction (move-paddle! conn new-direction)
                   :timestamp (System/currentTimeMillis)}))))))
 
+(defn defaults
+  []
+  {:timestamp (System/currentTimeMillis)
+   :direction nil
+   :events ()
+   :winners []
+   :game-data []})
+
 (defn game-over!
-  "Resets game state, updates winner and prints
-   results."
-  [data winners]
+  "Resets game state, updates winner and prints results."
+  [data winners game-data]
   (println (str "Game ended. Winner: " data))
+  (spit (str "log/" (System/currentTimeMillis) ".clj") game-data)
   (let [new-winners (conj winners data)]
     (println (frequencies new-winners))
     (assoc (defaults) :winners new-winners)))
@@ -95,17 +94,16 @@
 (defn handle-message!
   "Dispatches based on message."
   [conn strategy {msg-type :msgType data :data}
-   ball-events winners last-timestamp last-direction]
+   ball-events game-data winners last-timestamp last-direction]
   (case msg-type
     :joined (println (str "Game joined successfully. Use following URL for visualization: " data))
     :gameStarted (println (str "Game started: " (first data) " vs. " (second data)))
     :gameIsOn (make-move! conn data strategy ball-events last-timestamp last-direction)
-    :gameIsOver (game-over! data winners)
+    :gameIsOver (game-over! data winners game-data)
     :error (println "error: " data)))
 
 (defn parse-message
-  "Parses JSON structure into a Clojure
-   map."
+  "Parses JSON structure into a Clojure map."
   [data]
   (try
     (update-in (read-json data true) [:msgType] keyword)
@@ -124,8 +122,7 @@
 (def not-nil? (complement nil?))
 
 (defn game-data-seq
-  "Creates a sequence of messages from the
-   input stream."
+  "Creates a sequence of messages from the input stream."
   [conn]
   (take-while not-nil? (repeatedly #(read-msg conn))))
 
@@ -134,12 +131,13 @@
    input and reacts if necessary."
   [conn strategy]
   (loop [messages (game-data-seq conn)
-         {:keys [winners events direction timestamp] :as state} (defaults)]
-    (recur
-     (rest messages)
-     (merge state
-            (handle-message! conn strategy (parse-message (first messages))
-                             events winners timestamp direction))))
+         {:keys [winners events direction timestamp game-data] :as state} (defaults)]
+    (let [message (parse-message (first messages))]
+      (recur
+       (rest messages)
+       (-> (merge state (handle-message! conn strategy message
+                                         events game-data winners timestamp direction))
+           (update-in [:game-data] conj (:data message))))))
   (stop conn))
 
 
@@ -152,9 +150,11 @@
         out (PrintWriter. (.getOutputStream socket))]
     {:in in :out out}))
 
-(defn -main [team-name hostname port]
+(defn -main
+  [team-name hostname port]
   (let [conn (connect {:name hostname :port (read-string port)})
         join-message {:msgType "join" :data team-name}]
+    (.mkdir (File. "log"))
     (write! conn join-message)
     (.start (Thread. #(conn-handler conn :combo)))))
 
@@ -169,23 +169,24 @@
   (let [conn (connect {:name "boris.helloworldopen.fi" :port 9090})
         join-message {:msgType "requestDuel" :data [team1 team2]}]
     (write! conn join-message)
-    (.start (Thread. #(conn-handler conn (or strategy :corner)))))))
+    (.start (Thread. #(conn-handler conn (or strategy :combo)))))))
 
 (comment
 (use '[incanter core stats charts])
 
-(defn view-games
-  [games]
-  (doseq [game games]
-    (let [pos (comp :pos :ball)
-          ball-x (map (comp :x pos) game)
-          ball-y (map (comp :y pos) game)
-          left-x (iterate (partial + 0.2) 0)
-          left-y (map (comp :y :left) game)
-          right-x (iterate #(- % 0.2) 640)
-          right-y (map (comp :y :right) game)]
-      (view (doto (scatter-plot ball-x ball-y)
-              (set-x-range 0 640)
-              (set-y-range 0 480)
-              (add-points left-x left-y)
-              (add-points right-x right-y)))))))
+(defn view-game
+  [game]
+  (let [pos (comp :pos :ball)
+        ball-x (map (comp :x pos) game)
+        ball-y (map (comp :y pos) game)
+        left-x (iterate (partial + 0.2) 0)
+        left-y (map (comp :y :left) game)
+        right-x (iterate #(- % 0.2) 640)
+        right-y (map (comp :y :right) game)]
+    (view (doto (scatter-plot ball-x ball-y)
+            (set-x-range 0 640)
+            (set-y-range 0 480)
+            (add-points left-x left-y)
+            (add-points right-x right-y))))))
+
+;testing on virtual machine

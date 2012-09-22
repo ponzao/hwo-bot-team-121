@@ -7,22 +7,19 @@
     (/ (- y2 y1) (- x2 x1))))
 
 (defn calculate-y-at-x
-  "Calculates y based on x, angle and a
-   point."
+  "Calculates y based on x, angle and a point."
   [angle [x1 y1] x2]
   (+ (* (- x2 x1) angle) y1))
 
 (defn calculate-x-at-y
-  "Calculates x based on y, angle and a
-   point."
+  "Calculates x based on y, angle and a point."
   [angle [x1 y1] y2]
   (if-not (zero? angle)
     (+ (/ (- y2 y1) angle) x1)
     x1))
 
 (defn out-of-bounds
-  "Returns :under or :over if point is
-   under or over the given boundaries."
+  "Returns :under or :over if point is under or over the given boundaries."
   ([min max n]
     (cond (< n min) :under
           (> n max) :over))
@@ -71,8 +68,8 @@
   (* 0.375 (:paddleHeight conf)))
 
 (defn ball-direction
-  "Based on two points returns :left if ball
-   is moving left and :right if moving right."
+  "Based on two points returns :left if ball is moving left and 
+   :right if moving right."
   [[x1 _] [x2 _]]
   (if (< x1 x2) :left :right))
 

@@ -18,3 +18,19 @@
          (take-ball-events [ev1 ev2]) => [ev1 ev2]
          (take-ball-events [ev1 ev2 ev3]) => [ev1 ev2]
          (take-ball-events [ev0 ev1 ev2 ev3]) => [ev1 ev2]))
+
+; duel results
+
+;{combo 9, basic 2}
+;{combo 10} vs accelerating
+;{combo 8, zigzag 2}
+;{combo 5, corner 5}
+;{combo 7, anti-corner 3}
+
+;{corner 5, anti 6}
+
+;{combo 7, becker 3}
+;{combo 17, becker 3}
+
+;{anti-corner 7, becker 3}
+;{anti-corner 13, becker 7}

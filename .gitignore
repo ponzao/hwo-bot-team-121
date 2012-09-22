@@ -11,6 +11,7 @@ lib
 .settings
 etc/__MACOSX
 target
+log
 bin
 classes
 *.log
