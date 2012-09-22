@@ -2,8 +2,8 @@
   (require [pingpong.calc :as calc]))
 
 (defn- ball-moves-right
-  "Calculates optimal paddle movement when ball moves right"
-  [conf position ball-angle ball-dir ball-target toimpact]
+  "Calculates optimal paddle movement when ball moves right."
+  [conf position ball-angle ball-dir ball-target _]
   (let [{:keys [maxWidth paddleWidth ballRadius]} conf
         start      [(- maxWidth paddleWidth ballRadius) ball-target]
         back-angle (* -1 ball-angle)
@@ -14,26 +14,26 @@
         
 (defn basic
   "Hits ball at calculated position (paddle's center)."
-  [conf position ball-angle ball-dir ball-target toimpact]
+  [conf position ball-angle ball-dir ball-target _]
   (let [{:keys [maxHeight paddleHeight]} conf
         target (- ball-target (/ paddleHeight 2))]
     target))
 
 (defn accelerating
   "Moves the paddle just before hitting."
-  [conf position ball-angle ball-dir ball-target toimpact]
+  [conf position ball-angle ball-dir ball-target impact-time]
   (let [{:keys [maxHeight paddleHeight ballRadius]} conf
         area-center (- (/ maxHeight 2) (/ paddleHeight 2))
         paddle-center (- ball-target (/ paddleHeight 2))
         offset (- (/ paddleHeight 2) ballRadius)
-        target (if (< toimpact 400) 
+        target (if (< impact-time 400) 
                  ((if (neg? ball-angle) - +) paddle-center offset) 
                  paddle-center)]
     target))
 
 (defn zigzag
   "Hits ball with paddle's corner."
-  [conf position ball-angle ball-dir ball-target toimpact]
+  [conf position ball-angle ball-dir ball-target _]
   (let [{:keys [maxHeight paddleHeight ballRadius]} conf
         offset (if (neg? ball-angle) (- ballRadius paddleHeight)
                                      (* -1 ballRadius)) 
@@ -42,7 +42,7 @@
 
 (defn corner
   "Hits ball into corners."
-  [conf position ball-angle ball-dir ball-target toimpact]
+  [conf position ball-angle ball-dir ball-target _]
   (let [{:keys [maxHeight maxWidth paddleWidth paddleHeight ballRadius]} conf
         opposite  [(- maxWidth ballRadius)
                    (if (neg? ball-angle) (- maxHeight ballRadius) ballRadius)]
@@ -56,7 +56,7 @@
 
 (defn anti-corner
   "Opposite action of zigzag. Good strategy against corner."
-  [conf position ball-angle ball-dir ball-target toimpact]
+  [conf position ball-angle ball-dir ball-target _]
   (let [{:keys [maxHeight paddleHeight ballRadius]} conf
         offset (if (pos? ball-angle) (- ballRadius paddleHeight)
                                      (* -1 ballRadius)) 
@@ -65,7 +65,7 @@
 
 (defn combo
   "Combines multiple strategies"
-  [conf position ball-angle ball-dir ball-target toimpact]
+  [conf position ball-angle ball-dir ball-target _]
   (let [{:keys [maxHeight paddleHeight ballRadius]} conf
         center-pos (or (> ball-target (* maxHeight 0.1))
                        (< ball-target (* maxHeight 0.9)))
@@ -73,10 +73,11 @@
         strategy (if small-angle
                    (if center-pos anti-corner anti-corner)
                    (if center-pos corner anti-corner))]
-    (strategy conf position ball-angle ball-dir ball-target toimpact)))
+    (strategy conf position ball-angle ball-dir ball-target _)))
 
-(defn create-strategy [strategy]
-  (fn [& [conf position ball-angle ball-dir & _ :as args]]
+(defn create-strategy
+  [strategy]
+  (fn [& [conf position ball-angle ball-dir :as args]]
     (let [target (case ball-dir
                    :left  (apply strategy args)
                    :right (apply ball-moves-right args))]
