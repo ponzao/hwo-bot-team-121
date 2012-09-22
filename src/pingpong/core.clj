@@ -179,5 +179,4 @@
               (add-points left-x left-y)
               (add-points right-x right-y)))))))
 
-;shell scripts
 ;testing on virtual machine
