@@ -100,7 +100,8 @@
     :gameStarted (println (str "Game started: " (first data) " vs. " (second data)))
     :gameIsOn (make-move! conn data strategy ball-events last-timestamp last-direction)
     :gameIsOver (game-over! data winners game-data)
-    :error (println "error: " data)))
+    :error (println "error: " data)
+    :pass))
 
 (defn parse-message
   "Parses JSON structure into a Clojure map."
