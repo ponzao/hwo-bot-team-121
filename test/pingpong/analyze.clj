@@ -5,7 +5,9 @@
 
 (defn load-game 
   [file] 
-  (drop 2 (read-string (slurp (.. file getAbsolutePath)))))     
+  (try 
+    (drop 2 (read-string (slurp (.. file getAbsolutePath))))
+    (catch Exception e {})))
 
 (def paddle-height 50)
 (def paddle-width  10)
@@ -63,7 +65,8 @@
 (defn dump-results 
   []
   (let [logs    (.. (java.io.File. "log") listFiles )
-        games   (map load-game logs)
+        ;games   (map load-game logs)
+        games   (map load-game (take 10 logs))
         results (mapcat turnangles games)
         sorted  (sort-by (juxt first second) results)]
     ;(pprint sorted)))
