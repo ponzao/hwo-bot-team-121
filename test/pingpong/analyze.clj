@@ -5,7 +5,7 @@
 
 (defn load-game 
   [file] 
-  (drop 2 (read-string (slurp (.. file getAbsolutePath)))))
+  (drop 2 (read-string (slurp (.. file getAbsolutePath)))))     
 
 (def paddle-height 50)
 (def paddle-width  10)
@@ -53,7 +53,8 @@
      (calc-paddle-pos coming going)]))
 
 (defn turnangles 
-  "Returns coming and leaving angles and averaged paddle hitpoint on each left player hit"
+  "Returns coming and leaving angles and averaged paddle hitpoint on each 
+   left player hit"
   [game]
   (map turnangle (turnpoints game)))
 
@@ -67,7 +68,7 @@
         sorted  (sort-by (juxt first second) results)]
     ;(pprint sorted)))
     (doseq [values sorted]
-      (pprintln values))))
+      (println values))))
     
   
         
