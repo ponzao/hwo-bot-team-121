@@ -34,6 +34,11 @@
     #(turnpoint? (map first %)) 
     (split-chunks 4 (map x-y-paddle game))))
 
+(defn calc-paddle-pos
+  [coming going]
+  (* (Math/sin (* Math/PI 1.6 (+ going coming)))         
+     (- (/ paddle-height 2) ball-radius) )) 
+  
 (defn turnangle
   [[p1 p2 p3 p4]]
   (let [coming      (calc/calculate-angle p2 p1)
@@ -42,7 +47,10 @@
         y-at-paddle (calc/calculate-y-at-x coming p1 x-at-paddle)
         paddle-pos  (/ (+ (last p2) (last p3)) 2)
         paddle-ctr  (+ paddle-pos (/ paddle-height 2))]
-    [coming going (- y-at-paddle paddle-ctr)]))
+    [coming 
+     going 
+     (- y-at-paddle paddle-ctr) 
+     (calc-paddle-pos coming going)]))
 
 (defn turnangles 
   "Returns coming and leaving angles and averaged paddle hitpoint on each left player hit"
@@ -57,7 +65,9 @@
         games   (map load-game logs)
         results (mapcat turnangles games)
         sorted  (sort-by (juxt first second) results)]
-    (pprint sorted)))
+    ;(pprint sorted)))
+    (doseq [values sorted]
+      (pprintln values))))
     
   
         
